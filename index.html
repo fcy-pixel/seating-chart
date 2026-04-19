@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>班級座位表生成器</title>
+    <!-- 引入 Tailwind CSS 進行樣式設計 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 SheetJS 用於讀取和匯出 Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        /* 列印時的樣式設定 */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background: white;
+                padding: 0;
+            }
+            #classroom {
+                border: none;
+                box-shadow: none;
+                width: 100%;
+            }
+            .desk {
+                border: 2px solid #000 !important; /* 列印時加深邊框 */
+            }
+            .platform {
+                border: 2px solid #000 !important;
+            }
+        }
+
+        /* 拖曳時的效果 */
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+
+        .desk {
+            transition: all 0.2s;
+            min-height: 80px;
+            touch-action: manipulation; /* 預設允許捲動 */
+        }
+
+        .desk:hover {
+            background-color: #f3f4f6;
+        }
+        
+        /* 白板樣式 (原講台) */
+        .platform {
+            width: 80%; /* 白板通常較寬 */
+            max-width: 600px;
+            height: 50px;
+            margin: 0 auto 30px auto;
+            background-color: #ffffff; /* 白色背景 */
+            display: flex;
+            align-items: center;
+            justify-content: center; /* 文字水平置中 */
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            letter-spacing: 4px;
+            border: 4px solid #334155; /* 深色邊框模擬白板框 */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            color: #334155;
+        }
+
+        /* 觸控模式開啟時，禁止座位區域的預設觸控行為(捲動) */
+        .touch-mode-active .desk {
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-8 text-gray-800">
+
+    <!-- 控制面板 (列印時會隱藏) -->
+    <div class="no-print max-w-6xl mx-auto bg-white p-6 rounded-lg shadow-md mb-8">
+        <h1 class="text-2xl font-bold mb-4 text-blue-600">課室座位表生成器</h1>
+        
+        <div class="flex flex-wrap gap-4 items-end">
+            <!-- 檔案上傳 -->
+            <div class="w-full md:w-auto">
+                <label class="block text-sm font-medium text-gray-700 mb-1">匯入 Excel (A欄姓名)</label>
+                <input type="file" id="fileInput" accept=".xlsx, .xls" class="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-full file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100
+                "/>
+            </div>
+
+            <!-- 設定格局 -->
+            <div class="flex gap-2">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">行數 (Rows)</label>
+                    <input type="number" id="rowsInput" value="5" min="1" max="20" class="border border-gray-300 rounded px-3 py-2 w-20 text-center">
+                </div>
+                <div class="flex items-end pb-2 font-bold text-gray-400">x</div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">列數 (Cols)</label>
+                    <input type="number" id="columnsInput" value="6" min="1" max="12" class="border border-gray-300 rounded px-3 py-2 w-20 text-center">
+                </div>
+            </div>
+
+            <!-- 觸控模式開關 (iPad專用) -->
+            <div class="bg-orange-50 p-2 rounded border border-orange-200">
+                <label class="flex items-center space-x-2 cursor-pointer select-none">
+                    <input type="checkbox" id="touchModeToggle" class="form-checkbox h-5 w-5 text-orange-600 rounded focus:ring-orange-500">
+                    <div>
+                        <span class="block text-sm font-bold text-orange-800">🖐️ 觸控調位模式</span>
+                        <span class="block text-xs text-orange-600">iPad/手機請勾選此項以拖曳</span>
+                    </div>
+                </label>
+            </div>
+
+            <!-- 按鈕群組 -->
+            <div class="flex gap-2 ml-auto flex-wrap">
+                <button onclick="updateGrid()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded shadow">
+                    更新格局
+                </button>
+                <button onclick="clearAll()" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded shadow">
+                    清空重置
+                </button>
+                <button onclick="exportExcel()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded shadow flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    匯出
+                </button>
+                <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    列印
+                </button>
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">* 電腦用戶可直接拖曳。iPad/手機用戶建議勾選「觸控調位模式」以獲得最佳體驗。</p>
+    </div>
+
+    <!-- 座位表顯示區域 -->
+    <div id="printArea" class="max-w-6xl mx-auto bg-white p-8 rounded-lg shadow-lg min-h-[600px]">
+        <div class="text-center mb-6">
+            <h2 id="pageTitle" contenteditable="true" class="text-3xl font-bold text-gray-800 border-b-2 border-transparent hover:border-gray-300 inline-block px-4 py-1 outline-none text-center">
+                班級座位表 (點擊修改標題)
+            </h2>
+            <br>
+            <p id="pageSubtitle" contenteditable="true" class="text-gray-500 mt-2 border-b border-transparent hover:border-gray-300 inline-block px-2 outline-none text-center">
+                點擊此處輸入日期或班別
+            </p>
+        </div>
+
+        <div class="platform">白 板 (Whiteboard)</div>
+
+        <!-- 網格容器 -->
+        <div id="classroom" class="grid gap-4 mx-auto">
+            <!-- 座位將由 JS 動態生成 -->
+        </div>
+    </div>
+
+    <script>
+        let students = [];
+        const classroom = document.getElementById('classroom');
+        const fileInput = document.getElementById('fileInput');
+        const touchToggle = document.getElementById('touchModeToggle');
+        
+        let draggedItem = null;
+        let draggedFromIndex = null;
+        
+        // 觸控相關變數
+        let touchDragItem = null;
+        let touchStartIndex = null;
+        let ghostElement = null;
+
+        // 初始化：從 LocalStorage 讀取資料
+        window.onload = function() {
+            const savedData = localStorage.getItem('seatingData');
+            const savedConfig = localStorage.getItem('seatingConfig');
+            
+            if (savedConfig) {
+                const config = JSON.parse(savedConfig);
+                document.getElementById('columnsInput').value = config.columns || 6;
+                document.getElementById('rowsInput').value = config.rows || 5;
+                document.getElementById('pageTitle').innerText = config.title || "班級座位表";
+                document.getElementById('pageSubtitle').innerText = config.subtitle || "點擊輸入備註";
+            }
+
+            if (savedData) {
+                students = JSON.parse(savedData);
+                updateGrid(false);
+            } else {
+                updateGrid();
+            }
+        };
+
+        // 監聽觸控模式切換
+        touchToggle.addEventListener('change', function() {
+            if(this.checked) {
+                classroom.classList.add('touch-mode-active');
+            } else {
+                classroom.classList.remove('touch-mode-active');
+            }
+        });
+
+        // 監聽標題修改以儲存
+        document.getElementById('pageTitle').addEventListener('input', saveData);
+        document.getElementById('pageSubtitle').addEventListener('input', saveData);
+
+        // 處理 Excel 匯入
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                let newStudents = jsonData.map(row => (row && row[0]) ? row[0] : "");
+                
+                let lastNonEmptyIndex = -1;
+                for (let i = newStudents.length - 1; i >= 0; i--) {
+                    if (newStudents[i]) {
+                        lastNonEmptyIndex = i;
+                        break;
+                    }
+                }
+                newStudents = newStudents.slice(0, lastNonEmptyIndex + 1);
+
+                if (newStudents.length > 0) {
+                    if(confirm(`成功讀取資料。是否覆蓋目前座位表？`)) {
+                        students = newStudents;
+                        
+                        const cols = parseInt(document.getElementById('columnsInput').value) || 6;
+                        const currentRows = parseInt(document.getElementById('rowsInput').value) || 5;
+                        const neededRows = Math.ceil(students.length / cols);
+                        
+                        if (neededRows > currentRows) {
+                            document.getElementById('rowsInput').value = neededRows;
+                        }
+                        
+                        updateGrid();
+                    }
+                } else {
+                    alert("檔案似乎是空的，請確保名字在第一欄 (A欄)。");
+                }
+                fileInput.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // 匯出 Excel 功能
+        function exportExcel() {
+            let exportData = [...students];
+            let lastIndex = -1;
+            for(let i = exportData.length - 1; i >= 0; i--) {
+                if(exportData[i] && exportData[i] !== "") {
+                    lastIndex = i;
+                    break;
+                }
+            }
+            exportData = exportData.slice(0, lastIndex + 1);
+            const aoa = exportData.map(s => [s]);
+
+            if (aoa.length === 0) {
+                alert("目前沒有學生資料可以匯出！");
+                return;
+            }
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+            XLSX.utils.book_append_sheet(wb, ws, "座位表");
+            
+            const dateStr = new Date().toISOString().slice(0,10);
+            const title = document.getElementById('pageTitle').innerText.trim() || "座位表";
+            XLSX.writeFile(wb, `${title}_${dateStr}.xlsx`);
+        }
+
+        // 更新網格佈局
+        function updateGrid(resizeArray = true) {
+            const rows = parseInt(document.getElementById('rowsInput').value) || 5;
+            const cols = parseInt(document.getElementById('columnsInput').value) || 6;
+            const totalSeats = rows * cols;
+            
+            classroom.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            
+            if (resizeArray) {
+                if (students.length < totalSeats) {
+                    while (students.length < totalSeats) students.push("");
+                } else if (students.length > totalSeats) {
+                    students = students.slice(0, totalSeats);
+                }
+            }
+
+            renderSeats();
+            saveData();
+        }
+
+        // 渲染座位
+        function renderSeats() {
+            classroom.innerHTML = '';
+            
+            students.forEach((name, index) => {
+                const desk = document.createElement('div');
+                desk.className = 'desk bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center p-2 cursor-grab shadow-sm relative select-none text-center';
+                desk.setAttribute('draggable', 'true');
+                desk.dataset.index = index;
+                
+                if (name) {
+                    desk.innerHTML = `<span class="font-bold text-lg text-gray-700 pointer-events-none break-words w-full">${name}</span>`;
+                } else {
+                    desk.innerHTML = `<span class="text-gray-300 text-sm pointer-events-none">空位</span>`;
+                    desk.classList.add('bg-gray-50');
+                }
+
+                // 綁定事件
+                addDragEvents(desk);
+                addTouchEvents(desk); // 新增觸控事件綁定
+                classroom.appendChild(desk);
+            });
+        }
+
+        // 傳統滑鼠拖放 (Desktop)
+        function addDragEvents(item) {
+            item.addEventListener('dragstart', function(e) {
+                draggedItem = item;
+                draggedFromIndex = parseInt(this.dataset.index);
+                this.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            item.addEventListener('dragend', function() {
+                this.classList.remove('dragging');
+                draggedItem = null;
+                draggedFromIndex = null;
+            });
+
+            item.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                this.style.borderColor = '#3b82f6';
+            });
+
+            item.addEventListener('dragleave', function() {
+                this.style.borderColor = '#d1d5db';
+            });
+
+            item.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#d1d5db';
+                const droppedToIndex = parseInt(this.dataset.index);
+                swapSeats(draggedFromIndex, droppedToIndex);
+            });
+        }
+
+        // 觸控拖放邏輯 (iPad/Mobile)
+        function addTouchEvents(item) {
+            // touchstart: 開始觸控
+            item.addEventListener('touchstart', function(e) {
+                // 只有在開啟「觸控模式」時才啟動
+                if (!touchToggle.checked) return;
+                
+                if (e.cancelable) e.preventDefault(); // 防止滾動
+                
+                const touch = e.touches[0];
+                touchDragItem = this;
+                touchStartIndex = parseInt(this.dataset.index);
+
+                // 建立「分身 (Ghost)」跟隨手指
+                ghostElement = this.cloneNode(true);
+                ghostElement.style.position = 'fixed';
+                ghostElement.style.width = this.offsetWidth + 'px';
+                ghostElement.style.height = this.offsetHeight + 'px';
+                ghostElement.style.opacity = '0.9';
+                ghostElement.style.zIndex = '9999';
+                ghostElement.style.pointerEvents = 'none'; // 讓它不擋住底下的 elementFromPoint
+                ghostElement.style.backgroundColor = '#e0f2fe'; // 淺藍色背景
+                ghostElement.style.border = '2px solid #3b82f6';
+                ghostElement.style.transform = 'rotate(3deg) scale(1.05)';
+                ghostElement.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.2)';
+                
+                updateGhostPosition(touch);
+                document.body.appendChild(ghostElement);
+                
+                this.classList.add('opacity-50'); // 原本的變半透明
+            }, {passive: false});
+
+            // touchmove: 手指移動
+            item.addEventListener('touchmove', function(e) {
+                if (!touchDragItem || !ghostElement) return;
+                if (e.cancelable) e.preventDefault(); // 繼續防止滾動
+
+                const touch = e.touches[0];
+                updateGhostPosition(touch);
+
+                // 偵測手指底下的元素
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                const desk = target ? target.closest('.desk') : null;
+
+                // 移除所有舊的高亮
+                document.querySelectorAll('.desk').forEach(d => {
+                    if(d !== touchDragItem) d.style.borderColor = '#d1d5db';
+                });
+
+                // 新增高亮
+                if (desk && desk !== touchDragItem) {
+                    desk.style.borderColor = '#3b82f6';
+                }
+            }, {passive: false});
+
+            // touchend: 手指放開
+            item.addEventListener('touchend', function(e) {
+                if (!touchDragItem) return;
+
+                const touch = e.changedTouches[0];
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                const desk = target ? target.closest('.desk') : null;
+
+                if (desk && desk !== touchDragItem) {
+                    const dropIndex = parseInt(desk.dataset.index);
+                    swapSeats(touchStartIndex, dropIndex);
+                }
+
+                // 清理工作
+                if (ghostElement) ghostElement.remove();
+                touchDragItem.classList.remove('opacity-50');
+                document.querySelectorAll('.desk').forEach(d => d.style.borderColor = '');
+
+                touchDragItem = null;
+                touchStartIndex = null;
+                ghostElement = null;
+            });
+        }
+
+        // 更新分身位置
+        function updateGhostPosition(touch) {
+            if(ghostElement) {
+                ghostElement.style.left = (touch.clientX - ghostElement.offsetWidth / 2) + 'px';
+                ghostElement.style.top = (touch.clientY - ghostElement.offsetHeight / 2) + 'px';
+            }
+        }
+
+        // 統一的交換邏輯
+        function swapSeats(fromIndex, toIndex) {
+            if (fromIndex !== null && toIndex !== null && fromIndex !== toIndex) {
+                const temp = students[fromIndex];
+                students[fromIndex] = students[toIndex];
+                students[toIndex] = temp;
+                renderSeats();
+                saveData();
+            }
+        }
+
+        // 儲存資料到 LocalStorage
+        function saveData() {
+            localStorage.setItem('seatingData', JSON.stringify(students));
+            localStorage.setItem('seatingConfig', JSON.stringify({
+                rows: document.getElementById('rowsInput').value,
+                columns: document.getElementById('columnsInput').value,
+                title: document.getElementById('pageTitle').innerText,
+                subtitle: document.getElementById('pageSubtitle').innerText
+            }));
+        }
+
+        // 清空所有資料
+        function clearAll() {
+            if (confirm("確定要清空所有座位和學生資料嗎？")) {
+                const rows = parseInt(document.getElementById('rowsInput').value) || 5;
+                const cols = parseInt(document.getElementById('columnsInput').value) || 6;
+                students = new Array(rows * cols).fill(""); 
+                renderSeats();
+                saveData();
+            }
+        }
+    </script>
+</body>
+</html>
