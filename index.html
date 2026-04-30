@@ -4,478 +4,751 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>班級座位表生成器</title>
-    <!-- 引入 Tailwind CSS 進行樣式設計 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 SheetJS 用於讀取和匯出 Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
     <style>
-        /* 列印時的樣式設定 */
-        @media print {
-            .no-print {
-                display: none !important;
-            }
-            body {
-                background: white;
-                padding: 0;
-            }
-            #classroom {
-                border: none;
-                box-shadow: none;
-                width: 100%;
-            }
-            .desk {
-                border: 2px solid #000 !important; /* 列印時加深邊框 */
-            }
-            .platform {
-                border: 2px solid #000 !important;
-            }
+        :root{ --brand:#4f46e5; --brand2:#7c3aed; }
+        html,body{font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',system-ui,sans-serif;}
+        body{
+            background:
+              radial-gradient(1200px 600px at -10% -10%, #eef2ff 0%, transparent 60%),
+              radial-gradient(1000px 600px at 110% -10%, #faf5ff 0%, transparent 60%),
+              #f7f8fc;
+            min-height:100vh;
         }
 
-        /* 拖曳時的效果 */
-        .dragging {
-            opacity: 0.5;
-            transform: scale(0.95);
+        .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;font-weight:600;padding:.55rem .9rem;border-radius:.6rem;
+             box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .08s ease, box-shadow .15s ease, background .15s, filter .15s;}
+        .btn:active{transform:translateY(1px);}
+        .btn-primary{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;}
+        .btn-primary:hover{filter:brightness(1.08);box-shadow:0 6px 14px -4px rgba(99,102,241,.5);}
+        .btn-soft{background:#fff;color:#374151;border:1px solid #e5e7eb;}
+        .btn-soft:hover{background:#f9fafb;border-color:#d1d5db;}
+        .btn-danger{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;}
+        .btn-danger:hover{background:#fecaca;}
+        .btn-success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
+        .btn-success:hover{background:#bbf7d0;}
+        .pill{display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .65rem;border-radius:9999px;font-size:.75rem;font-weight:600;}
+
+        .platform{
+            position:relative;
+            width:88%;max-width:680px;height:54px;margin:0 auto 26px;
+            background:linear-gradient(180deg,#ffffff,#f1f5f9);
+            border:3px solid #1e293b;border-radius:8px;
+            display:flex;align-items:center;justify-content:center;
+            font-weight:800;letter-spacing:6px;color:#1e293b;
+            box-shadow:0 6px 14px -8px rgba(0,0,0,.25), inset 0 0 0 4px #fff;
+        }
+        .platform::before,.platform::after{
+            content:"";position:absolute;bottom:-12px;width:4px;height:12px;background:#1e293b;border-radius:0 0 2px 2px;
+        }
+        .platform::before{left:18%;} .platform::after{right:18%;}
+
+        .desk{
+            position:relative;
+            min-height:84px;
+            border-radius:14px;
+            background:#ffffff;
+            border:2px solid #e5e7eb;
+            display:flex;align-items:center;justify-content:center;
+            text-align:center;padding:.5rem;
+            cursor:grab;user-select:none;
+            transition:transform .12s ease, box-shadow .15s ease, border-color .15s, background .15s, opacity .2s;
+            box-shadow:0 1px 2px rgba(15,23,42,.04);
+            touch-action:manipulation;
+        }
+        .desk:hover{transform:translateY(-2px);box-shadow:0 8px 18px -8px rgba(15,23,42,.18);border-color:#c7d2fe;}
+        .desk.empty{background:repeating-linear-gradient(45deg,#fafafa,#fafafa 6px,#f3f4f6 6px,#f3f4f6 12px);}
+        .desk.empty .name{color:#9ca3af;font-weight:500;font-size:.85rem;}
+        .desk.disabled{background:#f1f5f9 !important;border-style:dashed;border-color:#cbd5e1 !important;cursor:not-allowed;}
+        .desk.disabled .name{color:#94a3b8;font-size:.85rem;}
+        .desk.dragging{opacity:.45;transform:scale(.96);}
+        .desk.drop-target{border-color:var(--brand) !important;box-shadow:0 0 0 4px rgba(99,102,241,.18) !important;}
+        .desk.locked::after{content:"🔒";position:absolute;top:4px;right:6px;font-size:.85rem;}
+        .desk.dimmed{opacity:.25;}
+        .desk.highlight{box-shadow:0 0 0 4px #fde68a, 0 8px 18px -8px rgba(0,0,0,.18);border-color:#f59e0b;}
+        .desk .name{font-weight:700;font-size:1.05rem;color:#1f2937;line-height:1.25;word-break:break-word;}
+        .desk .seat-no{position:absolute;top:4px;left:6px;font-size:.65rem;color:#9ca3af;font-weight:600;}
+
+        .desk[data-color="1"]{background:#eef2ff;border-color:#c7d2fe;}
+        .desk[data-color="2"]{background:#fef3c7;border-color:#fde68a;}
+        .desk[data-color="3"]{background:#dcfce7;border-color:#bbf7d0;}
+        .desk[data-color="4"]{background:#fce7f3;border-color:#fbcfe8;}
+        .desk[data-color="5"]{background:#ffe4e6;border-color:#fecdd3;}
+
+        .touch-mode-active .desk{touch-action:none;}
+
+        .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(4px);}
+        .modal{background:#fff;border-radius:16px;padding:1.2rem 1.3rem;width:92%;max-width:420px;box-shadow:0 30px 60px -20px rgba(0,0,0,.4);}
+        .swatch{width:30px;height:30px;border-radius:50%;border:2px solid #e5e7eb;cursor:pointer;transition:transform .1s;}
+        .swatch:hover{transform:scale(1.1);}
+        .swatch.selected{box-shadow:0 0 0 3px #4f46e5;}
+
+        .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:.6rem 1rem;border-radius:9999px;font-size:.85rem;opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;z-index:80;}
+        .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+        @media print{
+            @page{size:A4 landscape;margin:10mm;}
+            body{background:#fff !important;}
+            .no-print{display:none !important;}
+            #printArea{box-shadow:none !important;border:none !important;padding:0 !important;max-width:100% !important;}
+            .desk{break-inside:avoid;border:2px solid #111 !important;background:#fff !important;box-shadow:none !important;}
+            .desk.disabled{border-style:dashed !important;background:#f5f5f5 !important;}
+            .desk.empty{background:#fff !important;}
+            .desk[data-color]{background:#fff !important;}
         }
 
-        .desk {
-            transition: all 0.2s;
-            min-height: 80px;
-            touch-action: manipulation; /* 預設允許捲動 */
-        }
+        .layout{display:grid;grid-template-columns:300px 1fr;gap:24px;max-width:1400px;margin:0 auto;}
+        @media (max-width:900px){.layout{grid-template-columns:1fr;}}
 
-        .desk:hover {
-            background-color: #f3f4f6;
-        }
-        
-        /* 白板樣式 (原講台) */
-        .platform {
-            width: 80%; /* 白板通常較寬 */
-            max-width: 600px;
-            height: 50px;
-            margin: 0 auto 30px auto;
-            background-color: #ffffff; /* 白色背景 */
-            display: flex;
-            align-items: center;
-            justify-content: center; /* 文字水平置中 */
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 1.2rem;
-            letter-spacing: 4px;
-            border: 4px solid #334155; /* 深色邊框模擬白板框 */
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            color: #334155;
-        }
-
-        /* 觸控模式開啟時，禁止座位區域的預設觸控行為(捲動) */
-        .touch-mode-active .desk {
-            touch-action: none;
-        }
+        details>summary{cursor:pointer;list-style:none;}
+        details>summary::-webkit-details-marker{display:none;}
+        details>summary .chev{display:inline-block;transition:transform .2s;}
+        details[open]>summary .chev{transform:rotate(90deg);}
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-8 text-gray-800">
+<body class="text-slate-800 p-4 md:p-8">
 
-    <!-- 控制面板 (列印時會隱藏) -->
-    <div class="no-print max-w-6xl mx-auto bg-white p-6 rounded-lg shadow-md mb-8">
-        <h1 class="text-2xl font-bold mb-4 text-blue-600">課室座位表生成器</h1>
-        
-        <div class="flex flex-wrap gap-4 items-end">
-            <!-- 檔案上傳 -->
-            <div class="w-full md:w-auto">
-                <label class="block text-sm font-medium text-gray-700 mb-1">匯入 Excel (A欄姓名)</label>
-                <input type="file" id="fileInput" accept=".xlsx, .xls" class="block w-full text-sm text-gray-500
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-full file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-blue-50 file:text-blue-700
-                  hover:file:bg-blue-100
-                "/>
-            </div>
+<header class="no-print max-w-[1400px] mx-auto mb-6 flex items-center justify-between flex-wrap gap-3">
+    <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 grid place-items-center text-white shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        </div>
+        <div>
+            <h1 class="text-xl md:text-2xl font-black tracking-tight">課室座位表生成器</h1>
+            <p class="text-xs text-slate-500">點按座位即可編輯・拖曳交換・支援 iPad 觸控・自動儲存</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+        <span id="statBox" class="pill bg-white border border-slate-200 text-slate-600">學生 0 / 座位 0</span>
+        <button onclick="undo()" id="undoBtn" class="btn btn-soft" title="復原 (Ctrl+Z)">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
+            復原
+        </button>
+        <button onclick="window.print()" class="btn btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+            列印
+        </button>
+    </div>
+</header>
 
-            <!-- 設定格局 -->
-            <div class="flex gap-2">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">行數 (Rows)</label>
-                    <input type="number" id="rowsInput" value="5" min="1" max="20" class="border border-gray-300 rounded px-3 py-2 w-20 text-center">
+<div class="layout">
+    <aside class="no-print bg-white rounded-2xl shadow-sm border border-slate-200 p-4 self-start lg:sticky lg:top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
+
+        <details open class="mb-3">
+            <summary class="flex items-center justify-between font-bold text-slate-700 mb-2">
+                <span class="flex items-center gap-2"><span class="chev">▸</span>📐 教室格局</span>
+            </summary>
+            <div class="space-y-2 pl-1">
+                <div class="flex gap-2 items-end">
+                    <div class="flex-1">
+                        <label class="block text-xs text-slate-500 mb-1">行 (前→後)</label>
+                        <input type="number" id="rowsInput" value="5" min="1" max="20" class="w-full border rounded-lg px-2 py-1.5 text-center">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs text-slate-500 mb-1">列 (左→右)</label>
+                        <input type="number" id="columnsInput" value="6" min="1" max="14" class="w-full border rounded-lg px-2 py-1.5 text-center">
+                    </div>
                 </div>
-                <div class="flex items-end pb-2 font-bold text-gray-400">x</div>
+                <button onclick="updateGrid()" class="btn btn-success w-full">套用格局</button>
+
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">列數 (Cols)</label>
-                    <input type="number" id="columnsInput" value="6" min="1" max="12" class="border border-gray-300 rounded px-3 py-2 w-20 text-center">
+                    <label class="block text-xs text-slate-500 mb-1">走道（在第幾列後加間隙，逗號分隔）</label>
+                    <input type="text" id="aisleInput" placeholder="例如：2,4" class="w-full border rounded-lg px-2 py-1.5 text-sm">
+                </div>
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" id="seatNoToggle" class="w-4 h-4 accent-indigo-600">
+                    <span>顯示座位編號</span>
+                </label>
+            </div>
+        </details>
+
+        <details open class="mb-3">
+            <summary class="flex items-center justify-between font-bold text-slate-700 mb-2">
+                <span class="flex items-center gap-2"><span class="chev">▸</span>👥 學生資料</span>
+            </summary>
+            <div class="space-y-2 pl-1">
+                <label class="block text-xs text-slate-500">匯入 Excel（A 欄為姓名）</label>
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="block w-full text-xs text-slate-500
+                  file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0
+                  file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
+                <div class="text-center text-xs text-slate-400">— 或 —</div>
+                <button onclick="openBulkAdd()" class="btn btn-soft w-full">✏️ 貼上名單</button>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="exportExcel()" class="btn btn-soft">⬇️ 匯出</button>
+                    <button onclick="clearAll()" class="btn btn-danger">🗑 清空</button>
                 </div>
             </div>
+        </details>
 
-            <!-- 觸控模式開關 (iPad專用) -->
-            <div class="bg-orange-50 p-2 rounded border border-orange-200">
-                <label class="flex items-center space-x-2 cursor-pointer select-none">
-                    <input type="checkbox" id="touchModeToggle" class="form-checkbox h-5 w-5 text-orange-600 rounded focus:ring-orange-500">
+        <details open class="mb-3">
+            <summary class="flex items-center justify-between font-bold text-slate-700 mb-2">
+                <span class="flex items-center gap-2"><span class="chev">▸</span>🛠 排座工具</span>
+            </summary>
+            <div class="space-y-2 pl-1">
+                <button onclick="shuffleSeats()" class="btn btn-primary w-full">🎲 隨機排座</button>
+                <label class="flex items-center gap-2 text-xs text-slate-600">
+                    <input type="checkbox" id="keepLocked" class="w-4 h-4 accent-indigo-600" checked>
+                    <span>保留已鎖定學生位置</span>
+                </label>
+                <button onclick="sortByName()" class="btn btn-soft w-full">🔤 依姓名排序</button>
+                <button onclick="reverseRows()" class="btn btn-soft w-full">🔄 前後對調</button>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">🔍 搜尋學生（聚光）</label>
+                    <input type="text" id="searchInput" placeholder="輸入姓名…" class="w-full border rounded-lg px-2 py-1.5 text-sm">
+                </div>
+                <label class="flex items-center gap-2 text-sm bg-amber-50 border border-amber-200 rounded-lg p-2">
+                    <input type="checkbox" id="touchModeToggle" class="w-4 h-4 accent-amber-600">
                     <div>
-                        <span class="block text-sm font-bold text-orange-800">🖐️ 觸控調位模式</span>
-                        <span class="block text-xs text-orange-600">iPad/手機請勾選此項以拖曳</span>
+                        <div class="text-xs font-bold text-amber-800">🖐️ 觸控調位模式</div>
+                        <div class="text-[11px] text-amber-700">iPad / 手機建議開啟</div>
                     </div>
                 </label>
             </div>
+        </details>
 
-            <!-- 按鈕群組 -->
-            <div class="flex gap-2 ml-auto flex-wrap">
-                <button onclick="updateGrid()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded shadow">
-                    更新格局
-                </button>
-                <button onclick="clearAll()" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded shadow">
-                    清空重置
-                </button>
-                <button onclick="exportExcel()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded shadow flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    匯出
-                </button>
-                <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                    </svg>
-                    列印
-                </button>
+        <details class="mb-1">
+            <summary class="flex items-center justify-between font-bold text-slate-700 mb-2">
+                <span class="flex items-center gap-2"><span class="chev">▸</span>💾 多個座位表</span>
+            </summary>
+            <div class="space-y-2 pl-1">
+                <button onclick="savePreset()" class="btn btn-success w-full">儲存目前為新座位表</button>
+                <select id="presetSelect" class="w-full border rounded-lg px-2 py-1.5 text-sm"></select>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="loadPreset()" class="btn btn-soft text-sm">載入</button>
+                    <button onclick="deletePreset()" class="btn btn-danger text-sm">刪除</button>
+                </div>
+            </div>
+        </details>
+
+        <p class="text-[11px] text-slate-400 mt-3 leading-relaxed">
+            提示：<br>
+            ・點按座位 → 編輯 / 鎖定 / 標色 / 停用<br>
+            ・電腦：直接拖曳交換位置<br>
+            ・iPad：勾選「觸控調位模式」再拖曳
+        </p>
+    </aside>
+
+    <main>
+        <div id="printArea" class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 min-h-[600px]">
+            <div class="text-center mb-6">
+                <h2 id="pageTitle" contenteditable="true" spellcheck="false"
+                    class="text-3xl md:text-4xl font-black text-slate-800 border-b-2 border-transparent hover:border-slate-300 focus:border-indigo-400 inline-block px-3 py-1 outline-none">
+                    班級座位表
+                </h2>
+                <div>
+                    <p id="pageSubtitle" contenteditable="true" spellcheck="false"
+                       class="text-slate-500 mt-1 border-b border-transparent hover:border-slate-300 focus:border-indigo-400 inline-block px-2 outline-none">
+                        點擊輸入日期或班別
+                    </p>
+                </div>
+            </div>
+
+            <div class="platform">白&nbsp;&nbsp;板&nbsp;&nbsp;Whiteboard</div>
+
+            <div id="classroom" class="grid gap-3 md:gap-4 mx-auto"></div>
+
+            <div class="mt-6 text-center text-xs text-slate-400 print:text-slate-500">
+                <span id="footerStat"></span>
             </div>
         </div>
-        <p class="text-xs text-gray-500 mt-2">* 電腦用戶可直接拖曳。iPad/手機用戶建議勾選「觸控調位模式」以獲得最佳體驗。</p>
-    </div>
+    </main>
+</div>
 
-    <!-- 座位表顯示區域 -->
-    <div id="printArea" class="max-w-6xl mx-auto bg-white p-8 rounded-lg shadow-lg min-h-[600px]">
-        <div class="text-center mb-6">
-            <h2 id="pageTitle" contenteditable="true" class="text-3xl font-bold text-gray-800 border-b-2 border-transparent hover:border-gray-300 inline-block px-4 py-1 outline-none text-center">
-                班級座位表 (點擊修改標題)
-            </h2>
-            <br>
-            <p id="pageSubtitle" contenteditable="true" class="text-gray-500 mt-2 border-b border-transparent hover:border-gray-300 inline-block px-2 outline-none text-center">
-                點擊此處輸入日期或班別
-            </p>
+<!-- Seat Edit Modal -->
+<div id="seatModal" class="modal-backdrop hidden">
+    <div class="modal">
+        <h3 class="font-bold text-lg mb-3">編輯座位 <span id="modalSeatNo" class="text-xs text-slate-400 font-normal"></span></h3>
+        <label class="block text-xs text-slate-500 mb-1">學生姓名（留空 = 空位）</label>
+        <input type="text" id="modalNameInput" class="w-full border rounded-lg px-3 py-2 mb-3" autocomplete="off">
+
+        <div class="mb-3">
+            <div class="text-xs text-slate-500 mb-1">標色（分組／提醒）</div>
+            <div id="modalColors" class="flex gap-2">
+                <div class="swatch" data-c="0" style="background:#fff"></div>
+                <div class="swatch" data-c="1" style="background:#c7d2fe"></div>
+                <div class="swatch" data-c="2" style="background:#fde68a"></div>
+                <div class="swatch" data-c="3" style="background:#bbf7d0"></div>
+                <div class="swatch" data-c="4" style="background:#fbcfe8"></div>
+                <div class="swatch" data-c="5" style="background:#fecdd3"></div>
+            </div>
         </div>
 
-        <div class="platform">白 板 (Whiteboard)</div>
+        <div class="flex flex-wrap gap-3 mb-4 text-sm">
+            <label class="flex items-center gap-1.5"><input type="checkbox" id="modalLock" class="w-4 h-4 accent-indigo-600">🔒 鎖定（不被隨機）</label>
+            <label class="flex items-center gap-1.5"><input type="checkbox" id="modalDisable" class="w-4 h-4 accent-slate-600">🚫 停用（無座位）</label>
+        </div>
 
-        <!-- 網格容器 -->
-        <div id="classroom" class="grid gap-4 mx-auto">
-            <!-- 座位將由 JS 動態生成 -->
+        <div class="flex justify-end gap-2">
+            <button onclick="closeSeatModal()" class="btn btn-soft">取消</button>
+            <button onclick="applySeatModal()" class="btn btn-primary">儲存</button>
         </div>
     </div>
+</div>
 
-    <script>
-        let students = [];
-        const classroom = document.getElementById('classroom');
-        const fileInput = document.getElementById('fileInput');
-        const touchToggle = document.getElementById('touchModeToggle');
-        
-        let draggedItem = null;
-        let draggedFromIndex = null;
-        
-        // 觸控相關變數
-        let touchDragItem = null;
-        let touchStartIndex = null;
-        let ghostElement = null;
+<!-- Bulk Add Modal -->
+<div id="bulkModal" class="modal-backdrop hidden">
+    <div class="modal">
+        <h3 class="font-bold text-lg mb-2">貼上學生名單</h3>
+        <p class="text-xs text-slate-500 mb-2">每行一個名字（會覆蓋現有名單，並自動填入空位）</p>
+        <textarea id="bulkText" rows="10" class="w-full border rounded-lg p-2 text-sm" placeholder="陳大文&#10;李小明&#10;王美麗"></textarea>
+        <div class="flex justify-end gap-2 mt-3">
+            <button onclick="closeBulkAdd()" class="btn btn-soft">取消</button>
+            <button onclick="applyBulkAdd()" class="btn btn-primary">套用</button>
+        </div>
+    </div>
+</div>
 
-        // 初始化：從 LocalStorage 讀取資料
-        window.onload = function() {
-            const savedData = localStorage.getItem('seatingData');
-            const savedConfig = localStorage.getItem('seatingConfig');
-            
-            if (savedConfig) {
-                const config = JSON.parse(savedConfig);
-                document.getElementById('columnsInput').value = config.columns || 6;
-                document.getElementById('rowsInput').value = config.rows || 5;
-                document.getElementById('pageTitle').innerText = config.title || "班級座位表";
-                document.getElementById('pageSubtitle').innerText = config.subtitle || "點擊輸入備註";
+<div id="toast" class="toast"></div>
+
+<script>
+/* ============== State ============== */
+// seat = { name, color:0-5, locked:bool, disabled:bool }
+let seats = [];
+let history = [];
+const HISTORY_LIMIT = 30;
+
+const classroom    = document.getElementById('classroom');
+const fileInput    = document.getElementById('fileInput');
+const touchToggle  = document.getElementById('touchModeToggle');
+const aisleInput   = document.getElementById('aisleInput');
+const seatNoToggle = document.getElementById('seatNoToggle');
+const searchInput  = document.getElementById('searchInput');
+
+let draggedFromIndex = null;
+let touchDragItem = null, touchStartIndex = null, ghostElement = null;
+let editingIndex = null, editingColor = 0;
+
+/* ============== Helpers ============== */
+function emptySeat(){return {name:"",color:0,locked:false,disabled:false};}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1700);}
+function pushHistory(){
+    history.push(JSON.stringify(seats));
+    if(history.length>HISTORY_LIMIT) history.shift();
+}
+function undo(){
+    if(!history.length) return toast("沒有可復原的操作");
+    seats = JSON.parse(history.pop());
+    renderSeats(); saveData(); toast("已復原");
+}
+
+/* ============== Init ============== */
+window.addEventListener('load',()=>{
+    const cfg = JSON.parse(localStorage.getItem('seatingConfig')||'null');
+    const data = JSON.parse(localStorage.getItem('seatingData')||'null');
+    if(cfg){
+        document.getElementById('rowsInput').value = cfg.rows || 5;
+        document.getElementById('columnsInput').value = cfg.columns || 6;
+        if(cfg.title) document.getElementById('pageTitle').innerText = cfg.title;
+        if(cfg.subtitle) document.getElementById('pageSubtitle').innerText = cfg.subtitle;
+        aisleInput.value = cfg.aisles || "";
+        seatNoToggle.checked = !!cfg.seatNo;
+    }
+    if(Array.isArray(data) && data.length){
+        // migrate old format (string[])
+        seats = data.map(d => typeof d === 'string' ? {...emptySeat(),name:d} : {...emptySeat(),...d});
+        updateGrid(false);
+    }else{
+        updateGrid();
+    }
+    refreshPresetList();
+});
+
+['pageTitle','pageSubtitle'].forEach(id=>document.getElementById(id).addEventListener('input',saveData));
+touchToggle.addEventListener('change',()=>classroom.classList.toggle('touch-mode-active',touchToggle.checked));
+aisleInput.addEventListener('input',()=>{renderSeats();saveData();});
+seatNoToggle.addEventListener('change',()=>{renderSeats();saveData();});
+searchInput.addEventListener('input',applySearch);
+document.addEventListener('keydown',e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z' && !isInModalInput(e.target)){e.preventDefault();undo();}
+});
+function isInModalInput(t){return t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable);}
+
+/* ============== Excel ============== */
+fileInput.addEventListener('change',e=>{
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev=>{
+        const wb = XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet,{header:1});
+        let names = json.map(r => (r&&r[0]!=null)?String(r[0]).trim():"").filter(n=>n!=="");
+        if(!names.length){alert("檔案為空，請確保姓名在 A 欄。");fileInput.value="";return;}
+        if(!confirm(`成功讀取 ${names.length} 位學生，是否覆蓋目前座位表？`)){fileInput.value="";return;}
+        loadNames(names);
+        fileInput.value = "";
+    };
+    reader.readAsArrayBuffer(file);
+});
+
+function loadNames(names){
+    pushHistory();
+    const cols = +document.getElementById('columnsInput').value || 6;
+    const currentRows = +document.getElementById('rowsInput').value || 5;
+    const needed = Math.ceil(names.length / cols);
+    if(needed > currentRows) document.getElementById('rowsInput').value = needed;
+    const rows = +document.getElementById('rowsInput').value;
+    const total = rows * cols;
+    seats = Array.from({length:total},()=>emptySeat());
+    names.forEach((n,i)=>{ if(i<total) seats[i].name=n; });
+    renderSeats(); saveData();
+    toast(`已載入 ${names.length} 位學生`);
+}
+
+function exportExcel(){
+    const names = seats.filter(s=>s.name).map(s=>[s.name]);
+    if(!names.length) return alert("目前沒有學生資料！");
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(names), "座位表");
+    const title = (document.getElementById('pageTitle').innerText.trim() || "座位表").replace(/[\\/:*?"<>|]/g,'_');
+    XLSX.writeFile(wb, `${title}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+/* ============== Grid ============== */
+function updateGrid(resize=true){
+    const rows = +document.getElementById('rowsInput').value || 5;
+    const cols = +document.getElementById('columnsInput').value || 6;
+    const total = rows * cols;
+    if(resize){
+        pushHistory();
+        if(seats.length < total) while(seats.length<total) seats.push(emptySeat());
+        else if(seats.length > total) seats = seats.slice(0,total);
+    }
+    renderSeats(); saveData();
+}
+
+function parseAisles(){
+    return aisleInput.value.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n)&&n>0);
+}
+
+function renderSeats(){
+    const cols = +document.getElementById('columnsInput').value || 6;
+    const rows = +document.getElementById('rowsInput').value || 5;
+    const aisles = parseAisles().filter(a=>a<cols);
+    const showSeatNo = seatNoToggle.checked;
+
+    // Build grid template with aisle filler columns
+    const tmpl = [];
+    for(let c=1;c<=cols;c++){
+        tmpl.push("minmax(0,1fr)");
+        if(aisles.includes(c) && c<cols) tmpl.push("22px");
+    }
+    classroom.style.gridTemplateColumns = tmpl.join(" ");
+
+    classroom.innerHTML = '';
+    for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+            const idx = r*cols + c;
+            const seat = seats[idx] || emptySeat();
+            const desk = document.createElement('div');
+            desk.className = 'desk';
+            desk.dataset.index = idx;
+            if(seat.color) desk.dataset.color = seat.color;
+            if(seat.locked) desk.classList.add('locked');
+            if(seat.disabled) desk.classList.add('disabled');
+            else if(!seat.name) desk.classList.add('empty');
+            desk.setAttribute('draggable', seat.disabled ? 'false':'true');
+
+            const labelHtml = seat.disabled
+                ? `<div class="name">無座位</div>`
+                : seat.name
+                    ? `<div class="name">${escapeHtml(seat.name)}</div>`
+                    : `<div class="name">空位</div>`;
+            const seatNoHtml = showSeatNo ? `<span class="seat-no">${idx+1}</span>` : '';
+            desk.innerHTML = seatNoHtml + labelHtml;
+
+            addDragEvents(desk);
+            addTouchEvents(desk);
+            desk.addEventListener('click',()=>openSeatModal(idx));
+            classroom.appendChild(desk);
+
+            // aisle gap cell after this column
+            if(aisles.includes(c+1) && c<cols-1){
+                const gap = document.createElement('div');
+                classroom.appendChild(gap);
             }
+        }
+    }
 
-            if (savedData) {
-                students = JSON.parse(savedData);
-                updateGrid(false);
-            } else {
-                updateGrid();
-            }
-        };
+    updateStats();
+    applySearch();
+}
 
-        // 監聽觸控模式切換
-        touchToggle.addEventListener('change', function() {
-            if(this.checked) {
-                classroom.classList.add('touch-mode-active');
-            } else {
-                classroom.classList.remove('touch-mode-active');
-            }
+function updateStats(){
+    const total = seats.filter(s=>!s.disabled).length;
+    const filled = seats.filter(s=>s.name && !s.disabled).length;
+    const disabled = seats.filter(s=>s.disabled).length;
+    document.getElementById('statBox').textContent = `學生 ${filled} / 座位 ${total}`;
+    document.getElementById('footerStat').textContent =
+        `共 ${filled} 位學生・${total} 個座位` + (disabled?`・${disabled} 個停用`:'');
+}
+
+/* ============== Drag (mouse) ============== */
+function addDragEvents(item){
+    item.addEventListener('dragstart',function(e){
+        if(this.classList.contains('disabled')){e.preventDefault();return;}
+        draggedFromIndex = +this.dataset.index;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed='move';
+        try{e.dataTransfer.setData('text/plain', String(draggedFromIndex));}catch(_){}
+    });
+    item.addEventListener('dragend',function(){
+        this.classList.remove('dragging');
+        draggedFromIndex=null;
+        document.querySelectorAll('.desk').forEach(d=>d.classList.remove('drop-target'));
+    });
+    item.addEventListener('dragover',function(e){e.preventDefault();this.classList.add('drop-target');});
+    item.addEventListener('dragleave',function(){this.classList.remove('drop-target');});
+    item.addEventListener('drop',function(e){
+        e.preventDefault();this.classList.remove('drop-target');
+        swapSeats(draggedFromIndex, +this.dataset.index);
+    });
+}
+
+/* ============== Touch ============== */
+function addTouchEvents(item){
+    item.addEventListener('touchstart',function(e){
+        if(!touchToggle.checked) return;
+        if(this.classList.contains('disabled')) return;
+        if(e.cancelable) e.preventDefault();
+        const t = e.touches[0];
+        touchDragItem = this;
+        touchStartIndex = +this.dataset.index;
+        ghostElement = this.cloneNode(true);
+        Object.assign(ghostElement.style,{
+            position:'fixed',width:this.offsetWidth+'px',height:this.offsetHeight+'px',
+            opacity:'0.92',zIndex:'9999',pointerEvents:'none',
+            transform:'rotate(2deg) scale(1.05)',boxShadow:'0 12px 24px rgba(0,0,0,.25)',
+            margin:'0'
         });
+        document.body.appendChild(ghostElement);
+        updateGhost(t);
+        this.classList.add('dragging');
+    },{passive:false});
 
-        // 監聽標題修改以儲存
-        document.getElementById('pageTitle').addEventListener('input', saveData);
-        document.getElementById('pageSubtitle').addEventListener('input', saveData);
+    item.addEventListener('touchmove',function(e){
+        if(!touchDragItem||!ghostElement) return;
+        if(e.cancelable) e.preventDefault();
+        const t = e.touches[0];
+        updateGhost(t);
+        const target = document.elementFromPoint(t.clientX,t.clientY);
+        const desk = target ? target.closest('.desk') : null;
+        document.querySelectorAll('.desk').forEach(d=>{if(d!==touchDragItem) d.classList.remove('drop-target');});
+        if(desk && desk!==touchDragItem && !desk.classList.contains('disabled')) desk.classList.add('drop-target');
+    },{passive:false});
 
-        // 處理 Excel 匯入
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                
-                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-                let newStudents = jsonData.map(row => (row && row[0]) ? row[0] : "");
-                
-                let lastNonEmptyIndex = -1;
-                for (let i = newStudents.length - 1; i >= 0; i--) {
-                    if (newStudents[i]) {
-                        lastNonEmptyIndex = i;
-                        break;
-                    }
-                }
-                newStudents = newStudents.slice(0, lastNonEmptyIndex + 1);
-
-                if (newStudents.length > 0) {
-                    if(confirm(`成功讀取資料。是否覆蓋目前座位表？`)) {
-                        students = newStudents;
-                        
-                        const cols = parseInt(document.getElementById('columnsInput').value) || 6;
-                        const currentRows = parseInt(document.getElementById('rowsInput').value) || 5;
-                        const neededRows = Math.ceil(students.length / cols);
-                        
-                        if (neededRows > currentRows) {
-                            document.getElementById('rowsInput').value = neededRows;
-                        }
-                        
-                        updateGrid();
-                    }
-                } else {
-                    alert("檔案似乎是空的，請確保名字在第一欄 (A欄)。");
-                }
-                fileInput.value = '';
-            };
-            reader.readAsArrayBuffer(file);
-        });
-
-        // 匯出 Excel 功能
-        function exportExcel() {
-            let exportData = [...students];
-            let lastIndex = -1;
-            for(let i = exportData.length - 1; i >= 0; i--) {
-                if(exportData[i] && exportData[i] !== "") {
-                    lastIndex = i;
-                    break;
-                }
-            }
-            exportData = exportData.slice(0, lastIndex + 1);
-            const aoa = exportData.map(s => [s]);
-
-            if (aoa.length === 0) {
-                alert("目前沒有學生資料可以匯出！");
-                return;
-            }
-
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet(aoa);
-            XLSX.utils.book_append_sheet(wb, ws, "座位表");
-            
-            const dateStr = new Date().toISOString().slice(0,10);
-            const title = document.getElementById('pageTitle').innerText.trim() || "座位表";
-            XLSX.writeFile(wb, `${title}_${dateStr}.xlsx`);
+    item.addEventListener('touchend',function(e){
+        if(!touchDragItem) return;
+        const t = e.changedTouches[0];
+        const target = document.elementFromPoint(t.clientX,t.clientY);
+        const desk = target ? target.closest('.desk') : null;
+        let swapped = false;
+        if(desk && desk!==touchDragItem && !desk.classList.contains('disabled')){
+            swapSeats(touchStartIndex, +desk.dataset.index);
+            swapped = true;
         }
-
-        // 更新網格佈局
-        function updateGrid(resizeArray = true) {
-            const rows = parseInt(document.getElementById('rowsInput').value) || 5;
-            const cols = parseInt(document.getElementById('columnsInput').value) || 6;
-            const totalSeats = rows * cols;
-            
-            classroom.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
-            
-            if (resizeArray) {
-                if (students.length < totalSeats) {
-                    while (students.length < totalSeats) students.push("");
-                } else if (students.length > totalSeats) {
-                    students = students.slice(0, totalSeats);
-                }
-            }
-
-            renderSeats();
-            saveData();
+        if(ghostElement) ghostElement.remove();
+        if(touchDragItem) touchDragItem.classList.remove('dragging');
+        document.querySelectorAll('.desk').forEach(d=>d.classList.remove('drop-target'));
+        touchDragItem=null; touchStartIndex=null; ghostElement=null;
+        // suppress click after touch swap
+        if(swapped){
+            const blocker = ev=>{ev.stopPropagation();ev.preventDefault();document.removeEventListener('click',blocker,true);};
+            document.addEventListener('click',blocker,true);
         }
+    });
 
-        // 渲染座位
-        function renderSeats() {
-            classroom.innerHTML = '';
-            
-            students.forEach((name, index) => {
-                const desk = document.createElement('div');
-                desk.className = 'desk bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center p-2 cursor-grab shadow-sm relative select-none text-center';
-                desk.setAttribute('draggable', 'true');
-                desk.dataset.index = index;
-                
-                if (name) {
-                    desk.innerHTML = `<span class="font-bold text-lg text-gray-700 pointer-events-none break-words w-full">${name}</span>`;
-                } else {
-                    desk.innerHTML = `<span class="text-gray-300 text-sm pointer-events-none">空位</span>`;
-                    desk.classList.add('bg-gray-50');
-                }
+    item.addEventListener('touchcancel',function(){
+        if(ghostElement) ghostElement.remove();
+        if(touchDragItem) touchDragItem.classList.remove('dragging');
+        document.querySelectorAll('.desk').forEach(d=>d.classList.remove('drop-target'));
+        touchDragItem=null; touchStartIndex=null; ghostElement=null;
+    });
+}
+function updateGhost(t){if(ghostElement){ghostElement.style.left=(t.clientX-ghostElement.offsetWidth/2)+'px';ghostElement.style.top=(t.clientY-ghostElement.offsetHeight/2)+'px';}}
 
-                // 綁定事件
-                addDragEvents(desk);
-                addTouchEvents(desk); // 新增觸控事件綁定
-                classroom.appendChild(desk);
-            });
+/* ============== Seat ops ============== */
+function swapSeats(a,b){
+    if(a==null||b==null||a===b) return;
+    if(!seats[a]||!seats[b]) return;
+    if(seats[a].disabled||seats[b].disabled) return;
+    pushHistory();
+    [seats[a],seats[b]] = [seats[b],seats[a]];
+    renderSeats(); saveData();
+}
+
+function shuffleSeats(){
+    const keepLocked = document.getElementById('keepLocked').checked;
+    pushHistory();
+    const idxs = seats.map((s,i)=>i).filter(i=>!seats[i].disabled && !(keepLocked && seats[i].locked));
+    const arr = idxs.map(i=>seats[i]);
+    for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+    idxs.forEach((origIdx,k)=>seats[origIdx]=arr[k]);
+    renderSeats(); saveData(); toast("已隨機排座");
+}
+
+function sortByName(){
+    pushHistory();
+    const idxs = seats.map((s,i)=>i).filter(i=>!seats[i].disabled);
+    const arr = idxs.map(i=>seats[i]).sort((a,b)=>{
+        if(!a.name && !b.name) return 0;
+        if(!a.name) return 1; if(!b.name) return -1;
+        return a.name.localeCompare(b.name,'zh-Hant');
+    });
+    idxs.forEach((origIdx,k)=>seats[origIdx]=arr[k]);
+    renderSeats(); saveData(); toast("已依姓名排序");
+}
+
+function reverseRows(){
+    const cols = +document.getElementById('columnsInput').value || 6;
+    const rows = +document.getElementById('rowsInput').value || 5;
+    pushHistory();
+    const newSeats = [];
+    for(let r=rows-1;r>=0;r--) for(let c=0;c<cols;c++) newSeats.push(seats[r*cols+c]||emptySeat());
+    seats = newSeats;
+    renderSeats(); saveData(); toast("已前後對調");
+}
+
+function clearAll(){
+    if(!confirm("確定清空所有座位與學生資料？")) return;
+    pushHistory();
+    const rows = +document.getElementById('rowsInput').value || 5;
+    const cols = +document.getElementById('columnsInput').value || 6;
+    seats = Array.from({length:rows*cols},()=>emptySeat());
+    renderSeats(); saveData(); toast("已清空");
+}
+
+/* ============== Search ============== */
+function applySearch(){
+    const q = (searchInput.value||"").trim().toLowerCase();
+    document.querySelectorAll('.desk').forEach(d=>{
+        d.classList.remove('highlight','dimmed');
+        if(!q) return;
+        const idx = +d.dataset.index;
+        const name = (seats[idx]?.name||"").toLowerCase();
+        if(name && name.includes(q)) d.classList.add('highlight');
+        else d.classList.add('dimmed');
+    });
+}
+
+/* ============== Modal: edit seat ============== */
+function openSeatModal(i){
+    editingIndex = i;
+    const s = seats[i];
+    editingColor = s.color||0;
+    document.getElementById('modalSeatNo').textContent = `#${i+1}`;
+    document.getElementById('modalNameInput').value = s.name||"";
+    document.getElementById('modalLock').checked = !!s.locked;
+    document.getElementById('modalDisable').checked = !!s.disabled;
+    document.querySelectorAll('#modalColors .swatch').forEach(sw=>{
+        sw.classList.toggle('selected', +sw.dataset.c===editingColor);
+    });
+    document.getElementById('seatModal').classList.remove('hidden');
+    setTimeout(()=>document.getElementById('modalNameInput').focus(),50);
+}
+function closeSeatModal(){editingIndex=null;document.getElementById('seatModal').classList.add('hidden');}
+function applySeatModal(){
+    if(editingIndex==null) return;
+    pushHistory();
+    const isDisabled = document.getElementById('modalDisable').checked;
+    seats[editingIndex] = {
+        name: isDisabled ? "" : document.getElementById('modalNameInput').value.trim(),
+        color: editingColor,
+        locked: !isDisabled && document.getElementById('modalLock').checked,
+        disabled: isDisabled
+    };
+    closeSeatModal();
+    renderSeats(); saveData();
+}
+document.querySelectorAll('#modalColors .swatch').forEach(sw=>{
+    sw.addEventListener('click',()=>{
+        editingColor = +sw.dataset.c;
+        document.querySelectorAll('#modalColors .swatch').forEach(x=>x.classList.toggle('selected',x===sw));
+    });
+});
+document.getElementById('seatModal').addEventListener('click',e=>{if(e.target.id==='seatModal') closeSeatModal();});
+document.getElementById('modalNameInput').addEventListener('keydown',e=>{if(e.key==='Enter') applySeatModal();else if(e.key==='Escape') closeSeatModal();});
+
+/* ============== Bulk add ============== */
+function openBulkAdd(){
+    document.getElementById('bulkText').value=seats.filter(s=>s.name).map(s=>s.name).join('\n');
+    document.getElementById('bulkModal').classList.remove('hidden');
+    setTimeout(()=>document.getElementById('bulkText').focus(),50);
+}
+function closeBulkAdd(){document.getElementById('bulkModal').classList.add('hidden');}
+function applyBulkAdd(){
+    const names = document.getElementById('bulkText').value.split('\n').map(n=>n.trim()).filter(Boolean);
+    closeBulkAdd();
+    if(!names.length) return;
+    loadNames(names);
+}
+document.getElementById('bulkModal').addEventListener('click',e=>{if(e.target.id==='bulkModal') closeBulkAdd();});
+
+/* ============== Save / Presets ============== */
+function saveData(){
+    localStorage.setItem('seatingData', JSON.stringify(seats));
+    localStorage.setItem('seatingConfig', JSON.stringify({
+        rows:document.getElementById('rowsInput').value,
+        columns:document.getElementById('columnsInput').value,
+        title:document.getElementById('pageTitle').innerText,
+        subtitle:document.getElementById('pageSubtitle').innerText,
+        aisles: aisleInput.value,
+        seatNo: seatNoToggle.checked
+    }));
+}
+
+function getPresets(){return JSON.parse(localStorage.getItem('seatingPresets')||'{}');}
+function setPresets(p){localStorage.setItem('seatingPresets',JSON.stringify(p));}
+function refreshPresetList(){
+    const sel = document.getElementById('presetSelect');
+    const presets = getPresets();
+    const keys = Object.keys(presets);
+    sel.innerHTML = keys.length
+        ? keys.map(k=>`<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join('')
+        : `<option value="">（尚未儲存）</option>`;
+}
+function savePreset(){
+    const defaultName = document.getElementById('pageTitle').innerText.trim()||"座位表";
+    const name = prompt("為此座位表命名：", defaultName);
+    if(!name) return;
+    const presets = getPresets();
+    presets[name] = {
+        seats,
+        config:{
+            rows:document.getElementById('rowsInput').value,
+            columns:document.getElementById('columnsInput').value,
+            title:document.getElementById('pageTitle').innerText,
+            subtitle:document.getElementById('pageSubtitle').innerText,
+            aisles:aisleInput.value, seatNo:seatNoToggle.checked
         }
-
-        // 傳統滑鼠拖放 (Desktop)
-        function addDragEvents(item) {
-            item.addEventListener('dragstart', function(e) {
-                draggedItem = item;
-                draggedFromIndex = parseInt(this.dataset.index);
-                this.classList.add('dragging');
-                e.dataTransfer.effectAllowed = 'move';
-            });
-
-            item.addEventListener('dragend', function() {
-                this.classList.remove('dragging');
-                draggedItem = null;
-                draggedFromIndex = null;
-            });
-
-            item.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                this.style.borderColor = '#3b82f6';
-            });
-
-            item.addEventListener('dragleave', function() {
-                this.style.borderColor = '#d1d5db';
-            });
-
-            item.addEventListener('drop', function(e) {
-                e.preventDefault();
-                this.style.borderColor = '#d1d5db';
-                const droppedToIndex = parseInt(this.dataset.index);
-                swapSeats(draggedFromIndex, droppedToIndex);
-            });
-        }
-
-        // 觸控拖放邏輯 (iPad/Mobile)
-        function addTouchEvents(item) {
-            // touchstart: 開始觸控
-            item.addEventListener('touchstart', function(e) {
-                // 只有在開啟「觸控模式」時才啟動
-                if (!touchToggle.checked) return;
-                
-                if (e.cancelable) e.preventDefault(); // 防止滾動
-                
-                const touch = e.touches[0];
-                touchDragItem = this;
-                touchStartIndex = parseInt(this.dataset.index);
-
-                // 建立「分身 (Ghost)」跟隨手指
-                ghostElement = this.cloneNode(true);
-                ghostElement.style.position = 'fixed';
-                ghostElement.style.width = this.offsetWidth + 'px';
-                ghostElement.style.height = this.offsetHeight + 'px';
-                ghostElement.style.opacity = '0.9';
-                ghostElement.style.zIndex = '9999';
-                ghostElement.style.pointerEvents = 'none'; // 讓它不擋住底下的 elementFromPoint
-                ghostElement.style.backgroundColor = '#e0f2fe'; // 淺藍色背景
-                ghostElement.style.border = '2px solid #3b82f6';
-                ghostElement.style.transform = 'rotate(3deg) scale(1.05)';
-                ghostElement.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.2)';
-                
-                updateGhostPosition(touch);
-                document.body.appendChild(ghostElement);
-                
-                this.classList.add('opacity-50'); // 原本的變半透明
-            }, {passive: false});
-
-            // touchmove: 手指移動
-            item.addEventListener('touchmove', function(e) {
-                if (!touchDragItem || !ghostElement) return;
-                if (e.cancelable) e.preventDefault(); // 繼續防止滾動
-
-                const touch = e.touches[0];
-                updateGhostPosition(touch);
-
-                // 偵測手指底下的元素
-                const target = document.elementFromPoint(touch.clientX, touch.clientY);
-                const desk = target ? target.closest('.desk') : null;
-
-                // 移除所有舊的高亮
-                document.querySelectorAll('.desk').forEach(d => {
-                    if(d !== touchDragItem) d.style.borderColor = '#d1d5db';
-                });
-
-                // 新增高亮
-                if (desk && desk !== touchDragItem) {
-                    desk.style.borderColor = '#3b82f6';
-                }
-            }, {passive: false});
-
-            // touchend: 手指放開
-            item.addEventListener('touchend', function(e) {
-                if (!touchDragItem) return;
-
-                const touch = e.changedTouches[0];
-                const target = document.elementFromPoint(touch.clientX, touch.clientY);
-                const desk = target ? target.closest('.desk') : null;
-
-                if (desk && desk !== touchDragItem) {
-                    const dropIndex = parseInt(desk.dataset.index);
-                    swapSeats(touchStartIndex, dropIndex);
-                }
-
-                // 清理工作
-                if (ghostElement) ghostElement.remove();
-                touchDragItem.classList.remove('opacity-50');
-                document.querySelectorAll('.desk').forEach(d => d.style.borderColor = '');
-
-                touchDragItem = null;
-                touchStartIndex = null;
-                ghostElement = null;
-            });
-        }
-
-        // 更新分身位置
-        function updateGhostPosition(touch) {
-            if(ghostElement) {
-                ghostElement.style.left = (touch.clientX - ghostElement.offsetWidth / 2) + 'px';
-                ghostElement.style.top = (touch.clientY - ghostElement.offsetHeight / 2) + 'px';
-            }
-        }
-
-        // 統一的交換邏輯
-        function swapSeats(fromIndex, toIndex) {
-            if (fromIndex !== null && toIndex !== null && fromIndex !== toIndex) {
-                const temp = students[fromIndex];
-                students[fromIndex] = students[toIndex];
-                students[toIndex] = temp;
-                renderSeats();
-                saveData();
-            }
-        }
-
-        // 儲存資料到 LocalStorage
-        function saveData() {
-            localStorage.setItem('seatingData', JSON.stringify(students));
-            localStorage.setItem('seatingConfig', JSON.stringify({
-                rows: document.getElementById('rowsInput').value,
-                columns: document.getElementById('columnsInput').value,
-                title: document.getElementById('pageTitle').innerText,
-                subtitle: document.getElementById('pageSubtitle').innerText
-            }));
-        }
-
-        // 清空所有資料
-        function clearAll() {
-            if (confirm("確定要清空所有座位和學生資料嗎？")) {
-                const rows = parseInt(document.getElementById('rowsInput').value) || 5;
-                const cols = parseInt(document.getElementById('columnsInput').value) || 6;
-                students = new Array(rows * cols).fill(""); 
-                renderSeats();
-                saveData();
-            }
-        }
-    </script>
+    };
+    setPresets(presets); refreshPresetList();
+    document.getElementById('presetSelect').value = name;
+    toast(`已儲存：${name}`);
+}
+function loadPreset(){
+    const name = document.getElementById('presetSelect').value;
+    if(!name) return toast("沒有可載入的座位表");
+    const p = getPresets()[name]; if(!p) return;
+    pushHistory();
+    seats = p.seats.map(s=>({...emptySeat(),...s}));
+    document.getElementById('rowsInput').value = p.config.rows;
+    document.getElementById('columnsInput').value = p.config.columns;
+    document.getElementById('pageTitle').innerText = p.config.title;
+    document.getElementById('pageSubtitle').innerText = p.config.subtitle;
+    aisleInput.value = p.config.aisles||"";
+    seatNoToggle.checked = !!p.config.seatNo;
+    renderSeats(); saveData(); toast(`已載入：${name}`);
+}
+function deletePreset(){
+    const name = document.getElementById('presetSelect').value;
+    if(!name) return;
+    if(!confirm(`刪除座位表「${name}」？`)) return;
+    const presets = getPresets(); delete presets[name]; setPresets(presets);
+    refreshPresetList(); toast("已刪除");
+}
+</script>
 </body>
 </html>
