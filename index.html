@@ -57,17 +57,18 @@
             border-radius:14px;
             overflow:hidden;
             touch-action:none;
+            container-type:size;
         }
         .desk{
             position:absolute;
-            width:104px;
-            height:80px;
+            width:11cqw;
+            height:14cqh;
             transform:translate(-50%,-50%);
             border-radius:14px;
             background:#ffffff;
             border:2px solid #e5e7eb;
             display:flex;align-items:center;justify-content:center;
-            text-align:center;padding:.4rem;
+            text-align:center;padding:.3rem;
             cursor:grab;user-select:none;
             transition:box-shadow .15s ease, border-color .15s, background .15s, opacity .2s;
             box-shadow:0 1px 2px rgba(15,23,42,.04);
@@ -83,8 +84,8 @@
         .desk.locked::after{content:"🔒";position:absolute;top:2px;right:4px;font-size:.75rem;}
         .desk.dimmed{opacity:.25;}
         .desk.highlight{box-shadow:0 0 0 4px #fde68a, 0 8px 18px -8px rgba(0,0,0,.18);border-color:#f59e0b;z-index:3;}
-        .desk .name{font-weight:700;font-size:.95rem;color:#1f2937;line-height:1.2;word-break:break-word;}
-        .desk .seat-no{position:absolute;top:2px;left:4px;font-size:.6rem;color:#9ca3af;font-weight:600;}
+        .desk .name{font-weight:700;font-size:clamp(.7rem, 2.2cqi, 1rem);color:#1f2937;line-height:1.2;word-break:break-word;}
+        .desk .seat-no{position:absolute;top:2px;left:4px;font-size:clamp(.55rem, 1.4cqi, .7rem);color:#9ca3af;font-weight:600;}
 
         .desk[data-color="1"]{background:#eef2ff;border-color:#c7d2fe;}
         .desk[data-color="2"]{background:#fef3c7;border-color:#fde68a;}
@@ -93,8 +94,7 @@
         .desk[data-color="5"]{background:#ffe4e6;border-color:#fecdd3;}
 
         @media (max-width:640px){
-            .desk{width:84px;height:68px;}
-            .desk .name{font-size:.8rem;}
+            .desk{padding:.2rem;border-radius:10px;}
         }
 
         .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(4px);}
@@ -107,15 +107,24 @@
         .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
 
         @media print{
-            @page{size:A4 landscape;margin:10mm;}
-            body{background:#fff !important;}
+            @page{size:A4 landscape;margin:8mm;}
+            html,body{width:277mm;height:190mm;background:#fff !important;}
+            body{padding:0 !important;margin:0 !important;}
             .no-print{display:none !important;}
-            #printArea{box-shadow:none !important;border:none !important;padding:0 !important;max-width:100% !important;}
-            #classroom{background:#fff !important;background-image:none !important;border:1px solid #cbd5e1 !important;}
-            .desk{break-inside:avoid;border:2px solid #111 !important;background:#fff !important;box-shadow:none !important;}
+            .layout{display:block !important;max-width:100% !important;margin:0 !important;gap:0 !important;}
+            #printArea{box-shadow:none !important;border:none !important;padding:0 !important;margin:0 !important;max-width:100% !important;width:100% !important;min-height:0 !important;border-radius:0 !important;}
+            #pageTitle{font-size:20pt !important;padding:0 !important;}
+            #pageSubtitle{font-size:11pt !important;padding:0 !important;}
+            #printArea > .text-center{margin-bottom:4mm !important;}
+            .platform{width:55% !important;max-width:none !important;height:8mm !important;margin:0 auto 4mm !important;font-size:11pt !important;letter-spacing:4px !important;border-width:2px !important;}
+            .platform::before,.platform::after{display:none !important;}
+            #classroom{width:100% !important;height:155mm !important;aspect-ratio:auto !important;background:#fff !important;background-image:none !important;border:1px solid #cbd5e1 !important;border-radius:6px !important;page-break-inside:avoid;break-inside:avoid;}
+            .desk{break-inside:avoid;border:1.5px solid #111 !important;background:#fff !important;box-shadow:none !important;border-radius:6px !important;}
             .desk.disabled{border-style:dashed !important;background:#f5f5f5 !important;}
             .desk.empty{background:#fff !important;}
             .desk[data-color]{background:#fff !important;}
+            .desk .name{font-size:10pt !important;color:#000 !important;}
+            #footerStat{font-size:9pt !important;}
         }
 
         .layout{display:grid;grid-template-columns:300px 1fr;gap:24px;max-width:1400px;margin:0 auto;}
