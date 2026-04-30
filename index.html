@@ -45,31 +45,46 @@
         }
         .platform::before{left:18%;} .platform::after{right:18%;}
 
-        .desk{
+        #classroom{
             position:relative;
-            min-height:84px;
+            width:100%;
+            aspect-ratio:16/10;
+            background:#f8faff;
+            background-image:
+              repeating-linear-gradient(0deg, transparent 0 39px, rgba(99,102,241,.06) 39px 40px),
+              repeating-linear-gradient(90deg, transparent 0 39px, rgba(99,102,241,.06) 39px 40px);
+            border:2px dashed #e0e7ff;
+            border-radius:14px;
+            overflow:hidden;
+            touch-action:none;
+        }
+        .desk{
+            position:absolute;
+            width:104px;
+            height:80px;
+            transform:translate(-50%,-50%);
             border-radius:14px;
             background:#ffffff;
             border:2px solid #e5e7eb;
             display:flex;align-items:center;justify-content:center;
-            text-align:center;padding:.5rem;
+            text-align:center;padding:.4rem;
             cursor:grab;user-select:none;
-            transition:transform .12s ease, box-shadow .15s ease, border-color .15s, background .15s, opacity .2s;
+            transition:box-shadow .15s ease, border-color .15s, background .15s, opacity .2s;
             box-shadow:0 1px 2px rgba(15,23,42,.04);
-            touch-action:manipulation;
+            touch-action:none;
         }
-        .desk:hover{transform:translateY(-2px);box-shadow:0 8px 18px -8px rgba(15,23,42,.18);border-color:#c7d2fe;}
+        .desk:hover{box-shadow:0 8px 18px -8px rgba(15,23,42,.25);border-color:#c7d2fe;z-index:2;}
         .desk.empty{background:repeating-linear-gradient(45deg,#fafafa,#fafafa 6px,#f3f4f6 6px,#f3f4f6 12px);}
-        .desk.empty .name{color:#9ca3af;font-weight:500;font-size:.85rem;}
+        .desk.empty .name{color:#9ca3af;font-weight:500;font-size:.8rem;}
         .desk.disabled{background:#f1f5f9 !important;border-style:dashed;border-color:#cbd5e1 !important;cursor:not-allowed;}
-        .desk.disabled .name{color:#94a3b8;font-size:.85rem;}
-        .desk.dragging{opacity:.45;transform:scale(.96);}
-        .desk.drop-target{border-color:var(--brand) !important;box-shadow:0 0 0 4px rgba(99,102,241,.18) !important;}
-        .desk.locked::after{content:"🔒";position:absolute;top:4px;right:6px;font-size:.85rem;}
+        .desk.disabled .name{color:#94a3b8;font-size:.8rem;}
+        .desk.dragging{opacity:.85;cursor:grabbing;z-index:10;box-shadow:0 14px 28px -8px rgba(0,0,0,.3);}
+        .desk.drop-target{border-color:var(--brand) !important;box-shadow:0 0 0 4px rgba(99,102,241,.25) !important;}
+        .desk.locked::after{content:"🔒";position:absolute;top:2px;right:4px;font-size:.75rem;}
         .desk.dimmed{opacity:.25;}
-        .desk.highlight{box-shadow:0 0 0 4px #fde68a, 0 8px 18px -8px rgba(0,0,0,.18);border-color:#f59e0b;}
-        .desk .name{font-weight:700;font-size:1.05rem;color:#1f2937;line-height:1.25;word-break:break-word;}
-        .desk .seat-no{position:absolute;top:4px;left:6px;font-size:.65rem;color:#9ca3af;font-weight:600;}
+        .desk.highlight{box-shadow:0 0 0 4px #fde68a, 0 8px 18px -8px rgba(0,0,0,.18);border-color:#f59e0b;z-index:3;}
+        .desk .name{font-weight:700;font-size:.95rem;color:#1f2937;line-height:1.2;word-break:break-word;}
+        .desk .seat-no{position:absolute;top:2px;left:4px;font-size:.6rem;color:#9ca3af;font-weight:600;}
 
         .desk[data-color="1"]{background:#eef2ff;border-color:#c7d2fe;}
         .desk[data-color="2"]{background:#fef3c7;border-color:#fde68a;}
@@ -77,7 +92,10 @@
         .desk[data-color="4"]{background:#fce7f3;border-color:#fbcfe8;}
         .desk[data-color="5"]{background:#ffe4e6;border-color:#fecdd3;}
 
-        .touch-mode-active .desk{touch-action:none;}
+        @media (max-width:640px){
+            .desk{width:84px;height:68px;}
+            .desk .name{font-size:.8rem;}
+        }
 
         .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(4px);}
         .modal{background:#fff;border-radius:16px;padding:1.2rem 1.3rem;width:92%;max-width:420px;box-shadow:0 30px 60px -20px rgba(0,0,0,.4);}
@@ -93,6 +111,7 @@
             body{background:#fff !important;}
             .no-print{display:none !important;}
             #printArea{box-shadow:none !important;border:none !important;padding:0 !important;max-width:100% !important;}
+            #classroom{background:#fff !important;background-image:none !important;border:1px solid #cbd5e1 !important;}
             .desk{break-inside:avoid;border:2px solid #111 !important;background:#fff !important;box-shadow:none !important;}
             .desk.disabled{border-style:dashed !important;background:#f5f5f5 !important;}
             .desk.empty{background:#fff !important;}
@@ -141,23 +160,24 @@
                 <span class="flex items-center gap-2"><span class="chev">▸</span>📐 教室格局</span>
             </summary>
             <div class="space-y-2 pl-1">
-                <div class="flex gap-2 items-end">
-                    <div class="flex-1">
-                        <label class="block text-xs text-slate-500 mb-1">行 (前→後)</label>
-                        <input type="number" id="rowsInput" value="5" min="1" max="20" class="w-full border rounded-lg px-2 py-1.5 text-center">
-                    </div>
-                    <div class="flex-1">
-                        <label class="block text-xs text-slate-500 mb-1">列 (左→右)</label>
-                        <input type="number" id="columnsInput" value="6" min="1" max="14" class="w-full border rounded-lg px-2 py-1.5 text-center">
-                    </div>
-                </div>
-                <button onclick="updateGrid()" class="btn btn-success w-full">套用格局</button>
-
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">走道（在第幾列後加間隙，逗號分隔）</label>
-                    <input type="text" id="aisleInput" placeholder="例如：2,4" class="w-full border rounded-lg px-2 py-1.5 text-sm">
+                    <label class="block text-xs text-slate-500 mb-1">座位數量</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="seatCountInput" value="30" min="1" max="100" class="flex-1 border rounded-lg px-2 py-1.5 text-center">
+                        <button onclick="applySeatCount()" class="btn btn-success px-3">套用</button>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1">座位可自由拖曳到任何位置，不受格子限制</p>
                 </div>
-                <label class="flex items-center gap-2 text-sm">
+
+                <div class="border-t pt-2 mt-2">
+                    <label class="block text-xs text-slate-500 mb-1">每行幾個（用於整齊排列）</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="arrangeColsInput" value="6" min="1" max="20" class="flex-1 border rounded-lg px-2 py-1.5 text-center">
+                        <button onclick="arrangeGrid()" class="btn btn-soft px-3" title="重新排列成整齊網格">📏 排列</button>
+                    </div>
+                </div>
+
+                <label class="flex items-center gap-2 text-sm pt-1">
                     <input type="checkbox" id="seatNoToggle" class="w-4 h-4 accent-indigo-600">
                     <span>顯示座位編號</span>
                 </label>
@@ -198,13 +218,6 @@
                     <label class="block text-xs text-slate-500 mb-1">🔍 搜尋學生（聚光）</label>
                     <input type="text" id="searchInput" placeholder="輸入姓名…" class="w-full border rounded-lg px-2 py-1.5 text-sm">
                 </div>
-                <label class="flex items-center gap-2 text-sm bg-amber-50 border border-amber-200 rounded-lg p-2">
-                    <input type="checkbox" id="touchModeToggle" class="w-4 h-4 accent-amber-600">
-                    <div>
-                        <div class="text-xs font-bold text-amber-800">🖐️ 觸控調位模式</div>
-                        <div class="text-[11px] text-amber-700">iPad / 手機建議開啟</div>
-                    </div>
-                </label>
             </div>
         </details>
 
@@ -224,9 +237,9 @@
 
         <p class="text-[11px] text-slate-400 mt-3 leading-relaxed">
             提示：<br>
-            ・點按座位 → 編輯 / 鎖定 / 標色 / 停用<br>
-            ・電腦：直接拖曳交換位置<br>
-            ・iPad：勾選「觸控調位模式」再拖曳
+            ・點按座位 → 編輯姓名 / 鎖定 / 標色 / 停用<br>
+            ・拖曳座位 → 自由移動到任何位置（支援滑鼠、iPad 觸控）<br>
+            ・拖到另一個座位 → 互換學生（位置保留）
         </p>
     </aside>
 
@@ -247,7 +260,7 @@
 
             <div class="platform">白&nbsp;&nbsp;板&nbsp;&nbsp;Whiteboard</div>
 
-            <div id="classroom" class="grid gap-3 md:gap-4 mx-auto"></div>
+            <div id="classroom"></div>
 
             <div class="mt-6 text-center text-xs text-slate-400 print:text-slate-500">
                 <span id="footerStat"></span>
@@ -304,34 +317,44 @@
 
 <script>
 /* ============== State ============== */
-// seat = { name, color:0-5, locked:bool, disabled:bool }
+// seat = { id, name, color:0-5, locked:bool, disabled:bool, x:%, y:% }
 let seats = [];
 let history = [];
 const HISTORY_LIMIT = 30;
+let nextId = 1;
 
-const classroom    = document.getElementById('classroom');
-const fileInput    = document.getElementById('fileInput');
-const touchToggle  = document.getElementById('touchModeToggle');
-const aisleInput   = document.getElementById('aisleInput');
-const seatNoToggle = document.getElementById('seatNoToggle');
-const searchInput  = document.getElementById('searchInput');
+const classroom        = document.getElementById('classroom');
+const fileInput        = document.getElementById('fileInput');
+const seatCountInput   = document.getElementById('seatCountInput');
+const arrangeColsInput = document.getElementById('arrangeColsInput');
+const seatNoToggle     = document.getElementById('seatNoToggle');
+const searchInput      = document.getElementById('searchInput');
 
-let draggedFromIndex = null;
-let touchDragItem = null, touchStartIndex = null, ghostElement = null;
 let editingIndex = null, editingColor = 0;
+let drag = null;
 
 /* ============== Helpers ============== */
-function emptySeat(){return {name:"",color:0,locked:false,disabled:false};}
+function emptySeat(x=50,y=50){return {id:nextId++,name:"",color:0,locked:false,disabled:false,x,y};}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1700);}
 function pushHistory(){
-    history.push(JSON.stringify(seats));
+    history.push(JSON.stringify({seats,nextId}));
     if(history.length>HISTORY_LIMIT) history.shift();
 }
 function undo(){
     if(!history.length) return toast("沒有可復原的操作");
-    seats = JSON.parse(history.pop());
+    const st = JSON.parse(history.pop());
+    seats = st.seats; nextId = st.nextId;
+    seatCountInput.value = seats.length;
     renderSeats(); saveData(); toast("已復原");
+}
+
+function gridPos(i, total, cols){
+    const rows = Math.max(1, Math.ceil(total/cols));
+    const r = Math.floor(i/cols), c = i%cols;
+    const xL=8, xR=92, yT=10, yB=92;
+    const cellW = (xR-xL)/cols, cellH = (yB-yT)/rows;
+    return { x: xL + cellW*c + cellW/2, y: yT + cellH*r + cellH/2 };
 }
 
 /* ============== Init ============== */
@@ -339,32 +362,48 @@ window.addEventListener('load',()=>{
     const cfg = JSON.parse(localStorage.getItem('seatingConfig')||'null');
     const data = JSON.parse(localStorage.getItem('seatingData')||'null');
     if(cfg){
-        document.getElementById('rowsInput').value = cfg.rows || 5;
-        document.getElementById('columnsInput').value = cfg.columns || 6;
         if(cfg.title) document.getElementById('pageTitle').innerText = cfg.title;
         if(cfg.subtitle) document.getElementById('pageSubtitle').innerText = cfg.subtitle;
-        aisleInput.value = cfg.aisles || "";
+        if(cfg.arrangeCols) arrangeColsInput.value = cfg.arrangeCols;
         seatNoToggle.checked = !!cfg.seatNo;
     }
     if(Array.isArray(data) && data.length){
-        // migrate old format (string[])
-        seats = data.map(d => typeof d === 'string' ? {...emptySeat(),name:d} : {...emptySeat(),...d});
-        updateGrid(false);
-    }else{
-        updateGrid();
+        const first = data[0];
+        const hasFreePos = (typeof first==='object' && first && 'x' in first && 'y' in first);
+        if(hasFreePos){
+            seats = data.map(d=>({id:0,name:"",color:0,locked:false,disabled:false,x:50,y:50,...d}));
+            seats.forEach(s=>{ if(!s.id) s.id = nextId++; });
+            nextId = Math.max(nextId, ...seats.map(s=>s.id||0)) + 1;
+        } else {
+            // legacy grid migration
+            const cols = +(cfg && cfg.columns) || 6;
+            const total = data.length;
+            seats = data.map((d,i)=>{
+                const base = (typeof d==='string') ? {name:d} : d;
+                const p = gridPos(i,total,cols);
+                return {id:nextId++,name:"",color:0,locked:false,disabled:false,x:p.x,y:p.y,...base};
+            });
+        }
+        seatCountInput.value = seats.length;
+        renderSeats();
+    } else {
+        seatCountInput.value = 30;
+        applySeatCount(false);
     }
     refreshPresetList();
 });
 
 ['pageTitle','pageSubtitle'].forEach(id=>document.getElementById(id).addEventListener('input',saveData));
-touchToggle.addEventListener('change',()=>classroom.classList.toggle('touch-mode-active',touchToggle.checked));
-aisleInput.addEventListener('input',()=>{renderSeats();saveData();});
 seatNoToggle.addEventListener('change',()=>{renderSeats();saveData();});
 searchInput.addEventListener('input',applySearch);
 document.addEventListener('keydown',e=>{
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z' && !isInModalInput(e.target)){e.preventDefault();undo();}
 });
 function isInModalInput(t){return t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable);}
+
+document.addEventListener('pointermove', onPointerMove);
+document.addEventListener('pointerup', onPointerUp);
+document.addEventListener('pointercancel', onPointerUp);
 
 /* ============== Excel ============== */
 fileInput.addEventListener('change',e=>{
@@ -385,14 +424,17 @@ fileInput.addEventListener('change',e=>{
 
 function loadNames(names){
     pushHistory();
-    const cols = +document.getElementById('columnsInput').value || 6;
-    const currentRows = +document.getElementById('rowsInput').value || 5;
-    const needed = Math.ceil(names.length / cols);
-    if(needed > currentRows) document.getElementById('rowsInput').value = needed;
-    const rows = +document.getElementById('rowsInput').value;
-    const total = rows * cols;
-    seats = Array.from({length:total},()=>emptySeat());
-    names.forEach((n,i)=>{ if(i<total) seats[i].name=n; });
+    if(names.length > seats.length){
+        const cols = Math.max(1,+arrangeColsInput.value||6);
+        const total = names.length;
+        for(let i=seats.length;i<total;i++){
+            const p = gridPos(i,total,cols);
+            seats.push(emptySeat(p.x,p.y));
+        }
+        seatCountInput.value = seats.length;
+    }
+    seats.forEach(s=>{ s.name=""; });
+    names.forEach((n,i)=>{ if(i<seats.length) seats[i].name = n; });
     renderSeats(); saveData();
     toast(`已載入 ${names.length} 位學生`);
 }
@@ -406,74 +448,70 @@ function exportExcel(){
     XLSX.writeFile(wb, `${title}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
-/* ============== Grid ============== */
-function updateGrid(resize=true){
-    const rows = +document.getElementById('rowsInput').value || 5;
-    const cols = +document.getElementById('columnsInput').value || 6;
-    const total = rows * cols;
-    if(resize){
-        pushHistory();
-        if(seats.length < total) while(seats.length<total) seats.push(emptySeat());
-        else if(seats.length > total) seats = seats.slice(0,total);
+/* ============== Seat count / arrange ============== */
+function applySeatCount(record=true){
+    const n = Math.max(1, Math.min(100, +seatCountInput.value || 30));
+    seatCountInput.value = n;
+    if(n === seats.length){ renderSeats(); saveData(); return; }
+    if(record) pushHistory();
+    if(n > seats.length){
+        const cols = Math.max(1,+arrangeColsInput.value||6);
+        for(let i=seats.length;i<n;i++){
+            const p = gridPos(i,n,cols);
+            seats.push(emptySeat(p.x,p.y));
+        }
+    } else {
+        const removed = seats.slice(n);
+        if(removed.some(s=>s.name)){
+            if(!confirm(`減少到 ${n} 個座位會刪除最後 ${seats.length-n} 個座位（含學生姓名），確定？`)){
+                seatCountInput.value = seats.length;
+                if(record) history.pop();
+                return;
+            }
+        }
+        seats = seats.slice(0,n);
     }
     renderSeats(); saveData();
+    if(record) toast(`座位數量：${n}`);
 }
 
-function parseAisles(){
-    return aisleInput.value.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n)&&n>0);
+function arrangeGrid(){
+    if(!seats.length) return;
+    const cols = Math.max(1, +arrangeColsInput.value || 6);
+    pushHistory();
+    seats.forEach((s,i)=>{const p=gridPos(i,seats.length,cols);s.x=p.x;s.y=p.y;});
+    renderSeats(); saveData(); toast("已整齊排列");
+}
+
+/* ============== Render ============== */
+function setDeskPos(desk, seat){
+    desk.style.left = seat.x + '%';
+    desk.style.top  = seat.y + '%';
 }
 
 function renderSeats(){
-    const cols = +document.getElementById('columnsInput').value || 6;
-    const rows = +document.getElementById('rowsInput').value || 5;
-    const aisles = parseAisles().filter(a=>a<cols);
     const showSeatNo = seatNoToggle.checked;
-
-    // Build grid template with aisle filler columns
-    const tmpl = [];
-    for(let c=1;c<=cols;c++){
-        tmpl.push("minmax(0,1fr)");
-        if(aisles.includes(c) && c<cols) tmpl.push("22px");
-    }
-    classroom.style.gridTemplateColumns = tmpl.join(" ");
-
     classroom.innerHTML = '';
-    for(let r=0;r<rows;r++){
-        for(let c=0;c<cols;c++){
-            const idx = r*cols + c;
-            const seat = seats[idx] || emptySeat();
-            const desk = document.createElement('div');
-            desk.className = 'desk';
-            desk.dataset.index = idx;
-            if(seat.color) desk.dataset.color = seat.color;
-            if(seat.locked) desk.classList.add('locked');
-            if(seat.disabled) desk.classList.add('disabled');
-            else if(!seat.name) desk.classList.add('empty');
-            desk.setAttribute('draggable', seat.disabled ? 'false':'true');
-
-            const labelHtml = seat.disabled
-                ? `<div class="name">無座位</div>`
-                : seat.name
-                    ? `<div class="name">${escapeHtml(seat.name)}</div>`
-                    : `<div class="name">空位</div>`;
-            const seatNoHtml = showSeatNo ? `<span class="seat-no">${idx+1}</span>` : '';
-            desk.innerHTML = seatNoHtml + labelHtml;
-
-            addDragEvents(desk);
-            addTouchEvents(desk);
-            desk.addEventListener('click',()=>openSeatModal(idx));
-            classroom.appendChild(desk);
-
-            // aisle gap cell after this column
-            if(aisles.includes(c+1) && c<cols-1){
-                const gap = document.createElement('div');
-                classroom.appendChild(gap);
-            }
-        }
-    }
-
-    updateStats();
-    applySearch();
+    seats.forEach((seat,idx)=>{
+        const desk = document.createElement('div');
+        desk.className = 'desk';
+        desk.dataset.index = idx;
+        if(seat.color) desk.dataset.color = seat.color;
+        if(seat.locked) desk.classList.add('locked');
+        if(seat.disabled) desk.classList.add('disabled');
+        else if(!seat.name) desk.classList.add('empty');
+        setDeskPos(desk, seat);
+        const labelHtml = seat.disabled
+            ? `<div class="name">無座位</div>`
+            : seat.name
+                ? `<div class="name">${escapeHtml(seat.name)}</div>`
+                : `<div class="name">空位</div>`;
+        const seatNoHtml = showSeatNo ? `<span class="seat-no">${idx+1}</span>` : '';
+        desk.innerHTML = seatNoHtml + labelHtml;
+        desk.addEventListener('pointerdown', e=>onPointerDown(e,idx));
+        classroom.appendChild(desk);
+    });
+    updateStats(); applySearch();
 }
 
 function updateStats(){
@@ -485,139 +523,122 @@ function updateStats(){
         `共 ${filled} 位學生・${total} 個座位` + (disabled?`・${disabled} 個停用`:'');
 }
 
-/* ============== Drag (mouse) ============== */
-function addDragEvents(item){
-    item.addEventListener('dragstart',function(e){
-        if(this.classList.contains('disabled')){e.preventDefault();return;}
-        draggedFromIndex = +this.dataset.index;
-        this.classList.add('dragging');
-        e.dataTransfer.effectAllowed='move';
-        try{e.dataTransfer.setData('text/plain', String(draggedFromIndex));}catch(_){}
-    });
-    item.addEventListener('dragend',function(){
-        this.classList.remove('dragging');
-        draggedFromIndex=null;
-        document.querySelectorAll('.desk').forEach(d=>d.classList.remove('drop-target'));
-    });
-    item.addEventListener('dragover',function(e){e.preventDefault();this.classList.add('drop-target');});
-    item.addEventListener('dragleave',function(){this.classList.remove('drop-target');});
-    item.addEventListener('drop',function(e){
-        e.preventDefault();this.classList.remove('drop-target');
-        swapSeats(draggedFromIndex, +this.dataset.index);
-    });
+/* ============== Drag (pointer events: mouse + touch + pen) ============== */
+function onPointerDown(e, idx){
+    if(e.button !== undefined && e.button !== 0) return;
+    e.preventDefault();
+    const desk = e.currentTarget;
+    const isDisabled = seats[idx].disabled;
+    const dRect = desk.getBoundingClientRect();
+    drag = {
+        idx, desk,
+        startSeatX: seats[idx].x, startSeatY: seats[idx].y,
+        offsetX: e.clientX - (dRect.left + dRect.width/2),
+        offsetY: e.clientY - (dRect.top + dRect.height/2),
+        startClientX: e.clientX, startClientY: e.clientY,
+        moved:false, pointerId:e.pointerId, locked: isDisabled
+    };
+    if(!isDisabled){
+        try{ desk.setPointerCapture(e.pointerId); }catch(_){}
+        desk.classList.add('dragging');
+    }
 }
 
-/* ============== Touch ============== */
-function addTouchEvents(item){
-    item.addEventListener('touchstart',function(e){
-        if(!touchToggle.checked) return;
-        if(this.classList.contains('disabled')) return;
-        if(e.cancelable) e.preventDefault();
-        const t = e.touches[0];
-        touchDragItem = this;
-        touchStartIndex = +this.dataset.index;
-        ghostElement = this.cloneNode(true);
-        Object.assign(ghostElement.style,{
-            position:'fixed',width:this.offsetWidth+'px',height:this.offsetHeight+'px',
-            opacity:'0.92',zIndex:'9999',pointerEvents:'none',
-            transform:'rotate(2deg) scale(1.05)',boxShadow:'0 12px 24px rgba(0,0,0,.25)',
-            margin:'0'
-        });
-        document.body.appendChild(ghostElement);
-        updateGhost(t);
-        this.classList.add('dragging');
-    },{passive:false});
-
-    item.addEventListener('touchmove',function(e){
-        if(!touchDragItem||!ghostElement) return;
-        if(e.cancelable) e.preventDefault();
-        const t = e.touches[0];
-        updateGhost(t);
-        const target = document.elementFromPoint(t.clientX,t.clientY);
-        const desk = target ? target.closest('.desk') : null;
-        document.querySelectorAll('.desk').forEach(d=>{if(d!==touchDragItem) d.classList.remove('drop-target');});
-        if(desk && desk!==touchDragItem && !desk.classList.contains('disabled')) desk.classList.add('drop-target');
-    },{passive:false});
-
-    item.addEventListener('touchend',function(e){
-        if(!touchDragItem) return;
-        const t = e.changedTouches[0];
-        const target = document.elementFromPoint(t.clientX,t.clientY);
-        const desk = target ? target.closest('.desk') : null;
-        let swapped = false;
-        if(desk && desk!==touchDragItem && !desk.classList.contains('disabled')){
-            swapSeats(touchStartIndex, +desk.dataset.index);
-            swapped = true;
-        }
-        if(ghostElement) ghostElement.remove();
-        if(touchDragItem) touchDragItem.classList.remove('dragging');
-        document.querySelectorAll('.desk').forEach(d=>d.classList.remove('drop-target'));
-        touchDragItem=null; touchStartIndex=null; ghostElement=null;
-        // suppress click after touch swap
-        if(swapped){
-            const blocker = ev=>{ev.stopPropagation();ev.preventDefault();document.removeEventListener('click',blocker,true);};
-            document.addEventListener('click',blocker,true);
-        }
-    });
-
-    item.addEventListener('touchcancel',function(){
-        if(ghostElement) ghostElement.remove();
-        if(touchDragItem) touchDragItem.classList.remove('dragging');
-        document.querySelectorAll('.desk').forEach(d=>d.classList.remove('drop-target'));
-        touchDragItem=null; touchStartIndex=null; ghostElement=null;
-    });
+function onPointerMove(e){
+    if(!drag || drag.locked) return;
+    const dx = e.clientX - drag.startClientX;
+    const dy = e.clientY - drag.startClientY;
+    if(!drag.moved && Math.hypot(dx,dy) < 4) return;
+    drag.moved = true;
+    const rect = classroom.getBoundingClientRect();
+    if(rect.width === 0) return;
+    const cx = e.clientX - drag.offsetX;
+    const cy = e.clientY - drag.offsetY;
+    let xPct = ((cx - rect.left)/rect.width)*100;
+    let yPct = ((cy - rect.top )/rect.height)*100;
+    xPct = Math.max(2, Math.min(98, xPct));
+    yPct = Math.max(2, Math.min(98, yPct));
+    seats[drag.idx].x = xPct;
+    seats[drag.idx].y = yPct;
+    setDeskPos(drag.desk, seats[drag.idx]);
+    drag.desk.style.pointerEvents='none';
+    const target = document.elementFromPoint(e.clientX,e.clientY);
+    drag.desk.style.pointerEvents='';
+    document.querySelectorAll('.desk.drop-target').forEach(d=>d.classList.remove('drop-target'));
+    const t = target ? target.closest('.desk') : null;
+    if(t && t!==drag.desk && !t.classList.contains('disabled')) t.classList.add('drop-target');
 }
-function updateGhost(t){if(ghostElement){ghostElement.style.left=(t.clientX-ghostElement.offsetWidth/2)+'px';ghostElement.style.top=(t.clientY-ghostElement.offsetHeight/2)+'px';}}
 
-/* ============== Seat ops ============== */
-function swapSeats(a,b){
-    if(a==null||b==null||a===b) return;
-    if(!seats[a]||!seats[b]) return;
-    if(seats[a].disabled||seats[b].disabled) return;
+function onPointerUp(e){
+    if(!drag) return;
+    const desk = drag.desk;
+    desk.classList.remove('dragging');
+    document.querySelectorAll('.desk.drop-target').forEach(d=>d.classList.remove('drop-target'));
+    if(!drag.moved){
+        const idx = drag.idx;
+        drag = null;
+        openSeatModal(idx);
+        return;
+    }
+    desk.style.pointerEvents='none';
+    const target = document.elementFromPoint(e.clientX,e.clientY);
+    desk.style.pointerEvents='';
+    const t = target ? target.closest('.desk') : null;
     pushHistory();
-    [seats[a],seats[b]] = [seats[b],seats[a]];
+    if(t && t!==desk && !t.classList.contains('disabled')){
+        const otherIdx = +t.dataset.index;
+        const a = seats[drag.idx], b = seats[otherIdx];
+        // swap student data, restore the dragged seat to its original position
+        a.x = drag.startSeatX; a.y = drag.startSeatY;
+        const ad = {name:a.name,color:a.color,locked:a.locked};
+        a.name=b.name; a.color=b.color; a.locked=b.locked;
+        b.name=ad.name; b.color=ad.color; b.locked=ad.locked;
+    }
+    drag = null;
     renderSeats(); saveData();
 }
 
+/* ============== Seat ops ============== */
 function shuffleSeats(){
     const keepLocked = document.getElementById('keepLocked').checked;
     pushHistory();
     const idxs = seats.map((s,i)=>i).filter(i=>!seats[i].disabled && !(keepLocked && seats[i].locked));
-    const arr = idxs.map(i=>seats[i]);
-    for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
-    idxs.forEach((origIdx,k)=>seats[origIdx]=arr[k]);
+    const datas = idxs.map(i=>({name:seats[i].name,color:seats[i].color,locked:seats[i].locked}));
+    for(let i=datas.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[datas[i],datas[j]]=[datas[j],datas[i]];}
+    idxs.forEach((origIdx,k)=>{const d=datas[k];seats[origIdx].name=d.name;seats[origIdx].color=d.color;seats[origIdx].locked=d.locked;});
     renderSeats(); saveData(); toast("已隨機排座");
 }
 
 function sortByName(){
     pushHistory();
     const idxs = seats.map((s,i)=>i).filter(i=>!seats[i].disabled);
-    const arr = idxs.map(i=>seats[i]).sort((a,b)=>{
+    // reading order: top→bottom, left→right (group rows by Y proximity)
+    idxs.sort((a,b)=>{
+        const sa=seats[a], sb=seats[b];
+        if(Math.abs(sa.y - sb.y) > 8) return sa.y - sb.y;
+        return sa.x - sb.x;
+    });
+    const datas = idxs.map(i=>({name:seats[i].name,color:seats[i].color,locked:seats[i].locked}));
+    datas.sort((a,b)=>{
         if(!a.name && !b.name) return 0;
         if(!a.name) return 1; if(!b.name) return -1;
         return a.name.localeCompare(b.name,'zh-Hant');
     });
-    idxs.forEach((origIdx,k)=>seats[origIdx]=arr[k]);
+    idxs.forEach((origIdx,k)=>{const d=datas[k];seats[origIdx].name=d.name;seats[origIdx].color=d.color;seats[origIdx].locked=d.locked;});
     renderSeats(); saveData(); toast("已依姓名排序");
 }
 
 function reverseRows(){
-    const cols = +document.getElementById('columnsInput').value || 6;
-    const rows = +document.getElementById('rowsInput').value || 5;
     pushHistory();
-    const newSeats = [];
-    for(let r=rows-1;r>=0;r--) for(let c=0;c<cols;c++) newSeats.push(seats[r*cols+c]||emptySeat());
-    seats = newSeats;
+    seats.forEach(s=>{s.y = 100 - s.y;});
     renderSeats(); saveData(); toast("已前後對調");
 }
 
 function clearAll(){
-    if(!confirm("確定清空所有座位與學生資料？")) return;
+    if(!confirm("確定清空所有學生姓名？（座位佈局將保留）")) return;
     pushHistory();
-    const rows = +document.getElementById('rowsInput').value || 5;
-    const cols = +document.getElementById('columnsInput').value || 6;
-    seats = Array.from({length:rows*cols},()=>emptySeat());
-    renderSeats(); saveData(); toast("已清空");
+    seats.forEach(s=>{s.name="";s.color=0;s.locked=false;});
+    renderSeats(); saveData(); toast("已清空學生資料");
 }
 
 /* ============== Search ============== */
@@ -653,12 +674,11 @@ function applySeatModal(){
     if(editingIndex==null) return;
     pushHistory();
     const isDisabled = document.getElementById('modalDisable').checked;
-    seats[editingIndex] = {
-        name: isDisabled ? "" : document.getElementById('modalNameInput').value.trim(),
-        color: editingColor,
-        locked: !isDisabled && document.getElementById('modalLock').checked,
-        disabled: isDisabled
-    };
+    const s = seats[editingIndex];
+    s.name = isDisabled ? "" : document.getElementById('modalNameInput').value.trim();
+    s.color = editingColor;
+    s.locked = !isDisabled && document.getElementById('modalLock').checked;
+    s.disabled = isDisabled;
     closeSeatModal();
     renderSeats(); saveData();
 }
@@ -690,11 +710,9 @@ document.getElementById('bulkModal').addEventListener('click',e=>{if(e.target.id
 function saveData(){
     localStorage.setItem('seatingData', JSON.stringify(seats));
     localStorage.setItem('seatingConfig', JSON.stringify({
-        rows:document.getElementById('rowsInput').value,
-        columns:document.getElementById('columnsInput').value,
         title:document.getElementById('pageTitle').innerText,
         subtitle:document.getElementById('pageSubtitle').innerText,
-        aisles: aisleInput.value,
+        arrangeCols: arrangeColsInput.value,
         seatNo: seatNoToggle.checked
     }));
 }
@@ -715,13 +733,12 @@ function savePreset(){
     if(!name) return;
     const presets = getPresets();
     presets[name] = {
-        seats,
+        seats: JSON.parse(JSON.stringify(seats)),
         config:{
-            rows:document.getElementById('rowsInput').value,
-            columns:document.getElementById('columnsInput').value,
             title:document.getElementById('pageTitle').innerText,
             subtitle:document.getElementById('pageSubtitle').innerText,
-            aisles:aisleInput.value, seatNo:seatNoToggle.checked
+            arrangeCols:arrangeColsInput.value,
+            seatNo:seatNoToggle.checked
         }
     };
     setPresets(presets); refreshPresetList();
@@ -733,12 +750,11 @@ function loadPreset(){
     if(!name) return toast("沒有可載入的座位表");
     const p = getPresets()[name]; if(!p) return;
     pushHistory();
-    seats = p.seats.map(s=>({...emptySeat(),...s}));
-    document.getElementById('rowsInput').value = p.config.rows;
-    document.getElementById('columnsInput').value = p.config.columns;
-    document.getElementById('pageTitle').innerText = p.config.title;
-    document.getElementById('pageSubtitle').innerText = p.config.subtitle;
-    aisleInput.value = p.config.aisles||"";
+    seats = p.seats.map(s=>({id:nextId++,name:"",color:0,locked:false,disabled:false,x:50,y:50,...s,id:nextId-1}));
+    seatCountInput.value = seats.length;
+    document.getElementById('pageTitle').innerText = p.config.title||"班級座位表";
+    document.getElementById('pageSubtitle').innerText = p.config.subtitle||"";
+    arrangeColsInput.value = p.config.arrangeCols||6;
     seatNoToggle.checked = !!p.config.seatNo;
     renderSeats(); saveData(); toast(`已載入：${name}`);
 }
